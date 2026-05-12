@@ -26,6 +26,8 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
   const [sentryProjectSlug, setSentryProjectSlug] = useState(initial?.sentryProjectSlug ?? '');
   const [dsnParsed, setDsnParsed] = useState<DsnParsed | null>(null);
   const [logsFolder, setLogsFolder] = useState(initial?.logsFolder ?? '');
+  const [tagInput, setTagInput] = useState('');
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,6 +90,7 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
         sentryOrgSlug: sentryOrgSlug.trim() || undefined,
         sentryProjectSlug: sentryProjectSlug.trim() || undefined,
         logsFolder: logsFolder.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
       };
       let savedId: string | undefined;
       if (initial) {
@@ -257,6 +260,43 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
               className="w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
               placeholder="C:\\Users\\...\\project\\logs"
             />
+          </Field>
+
+          <Field label="Tags (optional)">
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-dash-line bg-dash-bg px-2 py-1.5">
+              {tags.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 rounded-full bg-dash-indigo/20 px-2 py-0.5 text-[10px] text-dash-indigoBright"
+                >
+                  {t}
+                  <button
+                    type="button"
+                    onClick={() => setTags(tags.filter((x) => x !== t))}
+                    className="ml-0.5 text-dash-indigoBright hover:text-white"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                    e.preventDefault();
+                    const t = tagInput.trim().replace(/,$/, '');
+                    if (t && !tags.includes(t)) setTags([...tags, t]);
+                    setTagInput('');
+                  }
+                  if (e.key === 'Backspace' && !tagInput && tags.length > 0) {
+                    setTags(tags.slice(0, -1));
+                  }
+                }}
+                className="flex-1 bg-transparent text-xs text-dash-text outline-none"
+                placeholder={tags.length === 0 ? 'FYP, Commercial, Learning... (Enter to add)' : ''}
+              />
+            </div>
           </Field>
         </div>
 

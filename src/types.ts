@@ -13,6 +13,7 @@ export interface ProjectConfig {
   sentryProjectSlug?: string;
   logsFolder?: string;
   errorThresholdPerDay?: number;
+  tags?: string[];
 }
 
 export interface GitInfo {
@@ -280,6 +281,8 @@ declare global {
         runDev: (id: string) => Promise<{ ok: boolean; error?: string }>;
         pull: (id: string) => Promise<{ ok: boolean; output?: string; error?: string }>;
         framework: (id: string) => Promise<FrameworkInfo | null>;
+        quickCommit: (args: { id: string; message: string; stageAll: boolean; push: boolean }) => Promise<{ ok: boolean; commit?: string; pushed?: boolean; pushError?: string | null; error?: string }>;
+        gitStatusShort: (id: string) => Promise<{ ok: boolean; output?: string; lineCount?: number; error?: string }>;
       };
       devserver: {
         start: (id: string) => Promise<{ ok: boolean; error?: string; framework?: FrameworkInfo }>;
@@ -293,6 +296,7 @@ declare global {
       deploys: {
         list: () => Promise<{ items: DeployItem[]; errors: { projectId: string; error: string }[] }>;
         refresh: () => Promise<{ items: DeployItem[]; errors: { projectId: string; error: string }[] }>;
+        trigger: (id: string) => Promise<{ ok: boolean; provider?: string; url?: string; id?: string; error?: string }>;
         onUpdate: (cb: (payload: { items: DeployItem[]; errors: { projectId: string; error: string }[]; manual: boolean }) => void) => () => void;
         onToast: (cb: (payload: { type: 'success' | 'error'; title: string; projectId: string }) => void) => () => void;
       };

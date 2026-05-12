@@ -18,6 +18,7 @@ export interface ProjectConfig {
   sentryProjectSlug?: string;
   logsFolder?: string;
   errorThresholdPerDay?: number;
+  tags?: string[];
 }
 
 export interface AppConfig {
