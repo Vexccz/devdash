@@ -1,6 +1,6 @@
 # DevDash
 
-A solo-developer dashboard for Windows that combines a **local project dashboard** and a **deploy radar** into a single Electron app. Track git status, spawn dev servers, and watch Vercel/Render deploys from one window.
+A developer dashboard for Windows that combines a **local project dashboard** and a **deploy radar** into a single Electron app. Track git status, spawn dev servers, and watch Vercel/Render deploys from one window.
 
 ![DevDash](build/icon.png)
 
