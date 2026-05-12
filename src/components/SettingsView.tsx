@@ -95,6 +95,38 @@ export default function SettingsView() {
       </section>
 
       <section className="card p-4">
+        <h2 className="mb-3 text-sm font-semibold text-dash-text">Ollama chat</h2>
+        <div className="flex flex-col gap-3 text-xs">
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-dash-mute">Base URL</span>
+            <input
+              type="text"
+              value={settings.ollamaBaseUrl}
+              onChange={(e) => update({ ollamaBaseUrl: e.target.value })}
+              placeholder="http://localhost:11434"
+              className="rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+            />
+            <span className="text-[10px] text-dash-mute">
+              Local: <code className="rounded bg-dash-bg px-1">http://localhost:11434</code> · Cloud: <code className="rounded bg-dash-bg px-1">https://ollama.com</code>
+            </span>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-dash-mute">API key (optional, required for Ollama cloud)</span>
+            <input
+              type="password"
+              value={settings.ollamaApiKey}
+              onChange={(e) => update({ ollamaApiKey: e.target.value })}
+              placeholder="sk-..."
+              className="rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+            />
+            <span className="text-[10px] text-dash-mute">
+              Create at <code className="rounded bg-dash-bg px-1">ollama.com/settings/keys</code>. Leave blank for local Ollama.
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section className="card p-4">
         <h2 className="mb-3 text-sm font-semibold text-dash-text">Polling & background jobs</h2>
         <div className="flex flex-col gap-3 text-xs">
           <label className="flex items-center gap-3">

@@ -2,6 +2,14 @@
 
 All notable changes to DevDash are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/), dates in `YYYY-MM-DD`.
 
+## [0.5.1] - 2026-05-13
+
+### Added
+- **Ollama cloud support** — the Settings tab now exposes a dedicated Ollama section with editable Base URL and a password-style API Key field. When a key is present, it is sent as `Authorization: Bearer <key>` on every request to `/api/tags` and `/api/chat`. Leave the key blank for a local Ollama server.
+
+### Fixed
+- Chat failed to load models when only an Ollama cloud endpoint was available because requests were made without an `Authorization` header.
+
 ## [0.5.0] - 2026-05-13
 
 Polish release focused on chat UX and theming.

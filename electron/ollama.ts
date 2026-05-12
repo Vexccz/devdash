@@ -16,8 +16,11 @@ export interface OllamaMessage {
 export async function listModels(): Promise<{ ok: boolean; models?: OllamaModel[]; error?: string }> {
   const cfg = loadConfig();
   const base = cfg.settings.ollamaBaseUrl || 'http://localhost:11434';
+  const apiKey = cfg.settings.ollamaApiKey || '';
   try {
-    const res = await fetch(`${base}/api/tags`, { method: 'GET' });
+    const headers: Record<string, string> = {};
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    const res = await fetch(`${base}/api/tags`, { method: 'GET', headers });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
     const data = (await res.json()) as { models?: OllamaModel[] };
     return { ok: true, models: data.models ?? [] };
@@ -40,6 +43,7 @@ export interface ChatStreamOptions {
 export async function streamChat(opts: ChatStreamOptions): Promise<void> {
   const cfg = loadConfig();
   const base = cfg.settings.ollamaBaseUrl || 'http://localhost:11434';
+  const apiKey = cfg.settings.ollamaApiKey || '';
 
   const msgs: OllamaMessage[] = [];
   if (opts.systemPrompt && opts.systemPrompt.trim()) {
@@ -48,9 +52,11 @@ export async function streamChat(opts: ChatStreamOptions): Promise<void> {
   msgs.push(...opts.messages);
 
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
     const res = await fetch(`${base}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model: opts.model,
         messages: msgs,
