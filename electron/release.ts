@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { simpleGit } from 'simple-git';
 import { BrowserWindow } from 'electron';
 import { generateChangelog, computeNextVersion, writeChangelogToProject, BumpKind } from './changelog';
+import { gitPush as safePush, gitPushTags as safePushTags } from './gitsafe';
 
 export interface ReleaseOptions {
   projectPath: string;
@@ -149,16 +150,21 @@ export async function performRelease(
     if (opts.pushTags) {
       setStep(progress, 'push', { status: 'running' });
       broadcast(getWindow, progress);
-      try {
-        await git.push();
-        await git.pushTags();
-        setStep(progress, 'push', { status: 'done' });
-      } catch (err) {
-        setStep(progress, 'push', { status: 'error', detail: (err as Error).message });
+      const pushRes = await safePush(opts.projectPath);
+      if (!pushRes.ok) {
+        setStep(progress, 'push', { status: 'error', detail: pushRes.error ?? pushRes.stderr });
         progress.finished = true;
         broadcast(getWindow, progress);
         return progress;
       }
+      const tagsRes = await safePushTags(opts.projectPath);
+      if (!tagsRes.ok) {
+        setStep(progress, 'push', { status: 'error', detail: tagsRes.error ?? tagsRes.stderr });
+        progress.finished = true;
+        broadcast(getWindow, progress);
+        return progress;
+      }
+      setStep(progress, 'push', { status: 'done' });
       broadcast(getWindow, progress);
     }
 

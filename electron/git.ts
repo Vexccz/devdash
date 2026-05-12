@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { simpleGit, SimpleGit } from 'simple-git';
+import { gitFetch as safeFetch, gitPull as safePull } from './gitsafe';
 
 export interface GitInfo {
   ok: boolean;
@@ -91,12 +92,12 @@ export async function getGitInfo(projectPath: string, opts: { fetch?: boolean } 
     if (opts.fetch) {
       const last = fetchTimestamps.get(projectPath) ?? 0;
       if (Date.now() - last > FETCH_COOLDOWN_MS) {
-        try {
-          await git.fetch();
-          fetchTimestamps.set(projectPath, Date.now());
-        } catch (err) {
+        const res = await safeFetch(projectPath);
+        if (!res.ok) {
           // fetch failures shouldn't break the whole call
-          console.warn('[git] fetch failed for', projectPath, (err as Error).message);
+          console.warn('[git] fetch failed for', projectPath, res.error ?? res.stderr);
+        } else {
+          fetchTimestamps.set(projectPath, Date.now());
         }
       }
     }
@@ -139,12 +140,12 @@ export async function getGitInfo(projectPath: string, opts: { fetch?: boolean } 
 }
 
 export async function gitPull(projectPath: string): Promise<{ ok: boolean; output?: string; error?: string }> {
-  try {
-    if (!isGitRepo(projectPath)) return { ok: false, error: 'Not a git repo' };
-    const git = simpleGit(projectPath);
-    const result = await git.pull();
-    return { ok: true, output: `${result.summary.changes} changes, ${result.summary.insertions} insertions, ${result.summary.deletions} deletions` };
-  } catch (err) {
-    return { ok: false, error: (err as Error).message };
+  if (!isGitRepo(projectPath)) return { ok: false, error: 'Not a git repo' };
+  const res = await safePull(projectPath);
+  if (!res.ok) {
+    return { ok: false, error: res.error ?? res.stderr ?? `git pull exited ${res.code}` };
   }
+  // `--quiet` suppresses most output; surface whatever text came back, else a short summary.
+  const out = (res.stdout + (res.stderr ? `\n${res.stderr}` : '')).trim();
+  return { ok: true, output: out || 'Pulled (no changes reported).' };
 }
