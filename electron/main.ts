@@ -40,6 +40,7 @@ import * as depcheck from './depcheck';
 import * as bundlesize from './bundlesize';
 import * as heatmap from './heatmap';
 import * as screenshots from './screenshots';
+import * as sentrymod from './sentry';
 import { detectFramework } from './frameworks';
 import { generateChangelog, writeChangelogToProject } from './changelog';
 import { performRelease } from './release';
@@ -395,6 +396,21 @@ function registerIpc() {
   });
   ipcMain.handle('uptime:errors', async (_e, id: string) => {
     return screenshots.gatherErrorsForProject(id);
+  });
+
+  // Sentry
+  ipcMain.handle('sentry:validate', (_e, dsn: string) => sentrymod.validateDsn(dsn ?? ''));
+  ipcMain.handle('sentry:resolve', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { orgSlug: null, projectSlug: null, projectIdNumeric: '', error: 'Project not found' };
+    if (!project.sentryDsn) {
+      return { orgSlug: null, projectSlug: null, projectIdNumeric: '', error: 'No DSN configured' };
+    }
+    return sentrymod.resolveSentryProject(project.sentryDsn, cfg.settings.sentryAuthToken, {
+      orgSlug: project.sentryOrgSlug,
+      projectSlug: project.sentryProjectSlug,
+    });
   });
 
   // Env manager

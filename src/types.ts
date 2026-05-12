@@ -9,6 +9,8 @@ export interface ProjectConfig {
   deployProvider: DeployProvider;
   deployId?: string;
   sentryDsn?: string;
+  sentryOrgSlug?: string;
+  sentryProjectSlug?: string;
   logsFolder?: string;
   errorThresholdPerDay?: number;
 }

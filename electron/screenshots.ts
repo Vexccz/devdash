@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { BrowserWindow } from 'electron';
-import axios from 'axios';
 import {
   insertScreenshot,
   readScreenshots,
@@ -12,6 +11,7 @@ import {
   readErrorDaily,
 } from './cache';
 import { loadConfig, screenshotsDir } from './config';
+import { getErrorStats, resolveSentryProject } from './sentry';
 
 export async function captureForProject(
   projectId: string,
@@ -124,11 +124,24 @@ export async function gatherErrorsForProject(projectId: string): Promise<{ sourc
   // Try Sentry first if DSN + auth token present
   if (project.sentryDsn && cfg.settings.sentryAuthToken) {
     try {
-      const days = await fetchSentryEvents(project.sentryDsn, cfg.settings.sentryAuthToken);
-      for (const d of days) {
-        upsertErrorDaily({ projectId, day: d.day, count: d.count, source: 'sentry' });
+      const resolved = await resolveSentryProject(project.sentryDsn, cfg.settings.sentryAuthToken, {
+        orgSlug: project.sentryOrgSlug,
+        projectSlug: project.sentryProjectSlug,
+      });
+      if (resolved.orgSlug && resolved.projectSlug) {
+        const days = await getErrorStats(
+          cfg.settings.sentryAuthToken,
+          resolved.orgSlug,
+          resolved.projectSlug
+        );
+        for (const d of days) {
+          upsertErrorDaily({ projectId, day: d.day, count: d.count, source: 'sentry' });
+        }
+        return { source: 'sentry', days };
       }
-      return { source: 'sentry', days };
+      if (resolved.error) {
+        console.warn('[errors] sentry resolve failed:', resolved.error);
+      }
     } catch (err) {
       console.warn('[errors] sentry fetch failed', (err as Error).message);
     }
@@ -198,29 +211,6 @@ function scanLogsForErrors(logsDir: string, days: number): { day: string; count:
     out.push({ day, count: counts.get(day) ?? 0 });
   }
   return out;
-}
-
-async function fetchSentryEvents(dsn: string, authToken: string): Promise<{ day: string; count: number }[]> {
-  // Parse DSN to get project identifier; Sentry API needs org + project slug which we cannot derive purely from DSN.
-  // We call the generic events-stats endpoint with token and trust token scoping for one project, if configured.
-  // If that fails, return empty.
-  try {
-    const url = 'https://sentry.io/api/0/organizations/sentry/stats_v2/?field=sum(quantity)&interval=1d&statsPeriod=7d&category=error';
-    const res = await axios.get(url, {
-      headers: { Authorization: `Bearer ${authToken}` },
-      timeout: 15000,
-    });
-    const intervals: string[] = res.data?.intervals ?? [];
-    const groups = res.data?.groups ?? [];
-    const row = groups[0]?.series?.['sum(quantity)'] ?? [];
-    const out: { day: string; count: number }[] = [];
-    for (let i = 0; i < intervals.length; i++) {
-      out.push({ day: intervals[i].slice(0, 10), count: Number(row[i] ?? 0) });
-    }
-    return out;
-  } catch {
-    return [];
-  }
 }
 
 export { readErrorDaily };

@@ -7,6 +7,13 @@ interface Props {
   onSaved: () => void;
 }
 
+interface DsnParsed {
+  ok: boolean;
+  orgId: string | null;
+  projectId: string | null;
+  error?: string;
+}
+
 export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
   const [name, setName] = useState(initial?.name ?? '');
   const [projectPath, setProjectPath] = useState(initial?.path ?? '');
@@ -15,6 +22,9 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
   const [deployProvider, setDeployProvider] = useState<DeployProvider>(initial?.deployProvider ?? 'none');
   const [deployId, setDeployId] = useState(initial?.deployId ?? '');
   const [sentryDsn, setSentryDsn] = useState(initial?.sentryDsn ?? '');
+  const [sentryOrgSlug, setSentryOrgSlug] = useState(initial?.sentryOrgSlug ?? '');
+  const [sentryProjectSlug, setSentryProjectSlug] = useState(initial?.sentryProjectSlug ?? '');
+  const [dsnParsed, setDsnParsed] = useState<DsnParsed | null>(null);
   const [logsFolder, setLogsFolder] = useState(initial?.logsFolder ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +37,27 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
+  // Live-validate the DSN as the user types.
+  useEffect(() => {
+    let cancelled = false;
+    const dsn = sentryDsn.trim();
+    if (!dsn) {
+      setDsnParsed(null);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await (window as any).devdash?.sentry?.validate(dsn);
+        if (!cancelled) setDsnParsed(res ?? null);
+      } catch {
+        if (!cancelled) setDsnParsed({ ok: false, orgId: null, projectId: null, error: 'validation failed' });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sentryDsn]);
+
   const pickFolder = async () => {
     const p = await window.devdash.projects.pickFolder();
     if (p) setProjectPath(p);
@@ -36,6 +67,11 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
     e.preventDefault();
     if (!name.trim() || !projectPath.trim()) {
       setError('Name and path are required.');
+      return;
+    }
+    const dsn = sentryDsn.trim();
+    if (dsn && dsnParsed && !dsnParsed.ok) {
+      setError(`Sentry DSN looks invalid${dsnParsed.error ? `: ${dsnParsed.error}` : ''}.`);
       return;
     }
     setError(null);
@@ -48,13 +84,31 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
         liveUrl: liveUrl.trim() || undefined,
         deployProvider,
         deployId: deployId.trim() || undefined,
-        sentryDsn: sentryDsn.trim() || undefined,
+        sentryDsn: dsn || undefined,
+        sentryOrgSlug: sentryOrgSlug.trim() || undefined,
+        sentryProjectSlug: sentryProjectSlug.trim() || undefined,
         logsFolder: logsFolder.trim() || undefined,
       };
+      let savedId: string | undefined;
       if (initial) {
         await window.devdash.projects.update(initial.id, payload);
+        savedId = initial.id;
       } else {
         await window.devdash.projects.add(payload);
+      }
+      // If we have a DSN + a token wired up and slugs are missing, auto-resolve.
+      if (savedId && dsn && (!sentryOrgSlug.trim() || !sentryProjectSlug.trim())) {
+        try {
+          const resolved = await (window as any).devdash?.sentry?.resolve(savedId);
+          if (resolved?.orgSlug && resolved?.projectSlug) {
+            await window.devdash.projects.update(savedId, {
+              sentryOrgSlug: resolved.orgSlug,
+              sentryProjectSlug: resolved.projectSlug,
+            });
+          }
+        } catch {
+          /* non-fatal */
+        }
       }
       onSaved();
     } catch (err) {
@@ -155,13 +209,46 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
           </div>
 
           <Field label="Sentry DSN (optional)">
-            <input
+            <textarea
               value={sentryDsn}
               onChange={(e) => setSentryDsn(e.target.value)}
+              rows={2}
               className="w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
-              placeholder="https://xxx@sentry.io/12345"
+              placeholder="https://<key>@o<orgId>.ingest.sentry.io/<projectId>"
             />
+            {sentryDsn.trim() && dsnParsed && (
+              <div
+                className={
+                  'mt-1 text-[10px] ' + (dsnParsed.ok ? 'text-dash-mute' : 'text-dash-err')
+                }
+              >
+                {dsnParsed.ok
+                  ? `orgId=${dsnParsed.orgId ?? '—'} · projectId=${dsnParsed.projectId ?? '—'}`
+                  : `Invalid DSN${dsnParsed.error ? `: ${dsnParsed.error}` : ''}`}
+              </div>
+            )}
           </Field>
+
+          {initial && sentryDsn.trim() && dsnParsed?.ok && (
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Sentry org slug (auto-resolved)">
+                <input
+                  value={sentryOrgSlug}
+                  onChange={(e) => setSentryOrgSlug(e.target.value)}
+                  className="w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+                  placeholder="leave blank to auto-resolve"
+                />
+              </Field>
+              <Field label="Sentry project slug">
+                <input
+                  value={sentryProjectSlug}
+                  onChange={(e) => setSentryProjectSlug(e.target.value)}
+                  className="w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+                  placeholder="leave blank to auto-resolve"
+                />
+              </Field>
+            </div>
+          )}
 
           <Field label="Logs folder (optional; falls back to <path>/logs)">
             <input

@@ -14,6 +14,8 @@ export interface ProjectConfig {
   /** Vercel projectId or Render serviceId depending on provider */
   deployId?: string;
   sentryDsn?: string;
+  sentryOrgSlug?: string;
+  sentryProjectSlug?: string;
   logsFolder?: string;
   errorThresholdPerDay?: number;
 }

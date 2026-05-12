@@ -106,6 +106,10 @@ const api = {
     status: () => ipcRenderer.invoke('scheduler:status'),
     runNow: (name: string) => ipcRenderer.invoke('scheduler:runNow', name),
   },
+  sentry: {
+    validate: (dsn: string) => ipcRenderer.invoke('sentry:validate', dsn),
+    resolve: (id: string) => ipcRenderer.invoke('sentry:resolve', id),
+  },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     update: (patch: any) => ipcRenderer.invoke('settings:update', patch),
