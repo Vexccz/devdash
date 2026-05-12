@@ -16,6 +16,9 @@ const api = {
     runDev: (id: string) => ipcRenderer.invoke('projects:runDev', id),
     pull: (id: string) => ipcRenderer.invoke('projects:pull', id),
     framework: (id: string) => ipcRenderer.invoke('projects:framework', id),
+    quickCommit: (args: { id: string; message: string; stageAll: boolean; push: boolean }) =>
+      ipcRenderer.invoke('projects:quickCommit', args),
+    gitStatusShort: (id: string) => ipcRenderer.invoke('projects:gitStatusShort', id),
   },
   devserver: {
     start: (id: string) => ipcRenderer.invoke('devserver:start', id),
@@ -37,6 +40,7 @@ const api = {
   deploys: {
     list: () => ipcRenderer.invoke('deploys:list'),
     refresh: () => ipcRenderer.invoke('deploys:refresh'),
+    trigger: (id: string) => ipcRenderer.invoke('deploys:trigger', id),
     onUpdate: (cb: (payload: any) => void) => {
       const h = (_: unknown, payload: any) => cb(payload);
       ipcRenderer.on('deploys:update', h);

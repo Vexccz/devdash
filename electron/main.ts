@@ -357,6 +357,100 @@ function registerIpc() {
     return gitPull(project.path);
   });
 
+  ipcMain.handle('projects:quickCommit', async (_e, args: { id: string; message: string; stageAll: boolean; push: boolean }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === args.id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    try {
+      const { simpleGit } = await import('simple-git');
+      const git = simpleGit(project.path);
+      if (args.stageAll) {
+        await git.add(['.']);
+      }
+      const status = await git.status();
+      if (status.staged.length === 0) {
+        return { ok: false, error: 'Nothing to commit (no staged changes)' };
+      }
+      const commit = await git.commit(args.message);
+      let pushResult = null;
+      if (args.push) {
+        const { gitPush } = await import('./gitsafe');
+        pushResult = await gitPush(project.path);
+      }
+      return {
+        ok: true,
+        commit: commit.commit,
+        pushed: !!args.push,
+        pushError: pushResult && !pushResult.ok ? pushResult.error ?? pushResult.stderr ?? null : null,
+      };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Commit failed' };
+    }
+  });
+
+  ipcMain.handle('projects:gitStatusShort', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    try {
+      const { simpleGit } = await import('simple-git');
+      const git = simpleGit(project.path);
+      const status = await git.status();
+      const lines: string[] = [];
+      for (const f of status.staged) lines.push(`A  ${f}`);
+      for (const f of status.modified) lines.push(` M ${f}`);
+      for (const f of status.deleted) lines.push(` D ${f}`);
+      for (const f of status.renamed) lines.push(`R  ${f.to || f.from || f}`);
+      for (const f of status.not_added) lines.push(`?? ${f}`);
+      return { ok: true, output: lines.join('\n') || 'Working tree clean.', lineCount: lines.length };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Status failed' };
+    }
+  });
+
+  ipcMain.handle('deploys:trigger', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    if (!project.deployProvider || project.deployProvider === 'none') {
+      return { ok: false, error: 'No deploy provider configured' };
+    }
+    if (!project.deployId) return { ok: false, error: 'No deploy ID set' };
+    const { vercelToken, renderToken } = cfg.settings;
+
+    try {
+      if (project.deployProvider === 'vercel') {
+        if (!vercelToken) return { ok: false, error: 'Vercel token not set' };
+        const axios = (await import('axios')).default;
+        const res = await axios.post(
+          'https://api.vercel.com/v13/deployments',
+          {
+            name: project.name,
+            project: project.deployId,
+            target: 'production',
+            gitSource: { type: 'github', ref: 'main' },
+          },
+          { headers: { Authorization: `Bearer ${vercelToken}` }, timeout: 15000 }
+        );
+        return { ok: true, url: res.data?.url || null, provider: 'vercel' };
+      }
+      if (project.deployProvider === 'render') {
+        if (!renderToken) return { ok: false, error: 'Render token not set' };
+        const axios = (await import('axios')).default;
+        const res = await axios.post(
+          `https://api.render.com/v1/services/${project.deployId}/deploys`,
+          {},
+          { headers: { Authorization: `Bearer ${renderToken}` }, timeout: 15000 }
+        );
+        return { ok: true, id: res.data?.id || null, provider: 'render' };
+      }
+      return { ok: false, error: 'Unknown provider' };
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || err?.message || 'Trigger failed';
+      return { ok: false, error: msg };
+    }
+  });
+
   ipcMain.handle('projects:framework', (_e, id: string) => {
     const cfg = loadConfig();
     const project = cfg.projects.find((p) => p.id === id);

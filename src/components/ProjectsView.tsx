@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { BundleSizeRow, DepSummary, ProjectConfig, ProjectStatus, UptimeSummary } from '../types';
 import AddProjectModal from './AddProjectModal';
+import QuickCommitModal from './QuickCommitModal';
 
 interface Props {
   onOpenProject: (id: string, tab?: 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release') => void;
@@ -16,6 +17,8 @@ export default function ProjectsView({ onOpenProject }: Props) {
   const [uptime, setUptime] = useState<Record<string, UptimeSummary>>({});
   const [depSummaries, setDepSummaries] = useState<Record<string, DepSummary | null>>({});
   const [bundleLatest, setBundleLatest] = useState<Record<string, BundleSizeRow | null>>({});
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [quickCommitFor, setQuickCommitFor] = useState<{ id: string; name: string } | null>(null);
 
   const load = async (fetchRemote = false) => {
     setLoading(true);
@@ -61,6 +64,31 @@ export default function ProjectsView({ onOpenProject }: Props) {
     void load(false);
   };
 
+  const allTags = useMemo(() => {
+    const s = new Set<string>();
+    for (const st of statuses) {
+      (st.project.tags ?? []).forEach((t) => s.add(t));
+    }
+    return Array.from(s).sort();
+  }, [statuses]);
+
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) => {
+      const next = new Set(prev);
+      if (next.has(tag)) next.delete(tag);
+      else next.add(tag);
+      return next;
+    });
+  };
+
+  const filteredStatuses = useMemo(() => {
+    if (selectedTags.size === 0) return statuses;
+    return statuses.filter((s) => {
+      const tags = s.project.tags ?? [];
+      return tags.some((t) => selectedTags.has(t));
+    });
+  }, [statuses, selectedTags]);
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between pb-3">
@@ -88,6 +116,35 @@ export default function ProjectsView({ onOpenProject }: Props) {
         </div>
       </div>
 
+      {allTags.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-dash-mute">Filter</span>
+          <button
+            onClick={() => setSelectedTags(new Set())}
+            className={`rounded-full border px-2 py-0.5 text-[10px] ${
+              selectedTags.size === 0
+                ? 'border-dash-indigo/60 bg-dash-indigo/20 text-dash-indigoBright'
+                : 'border-dash-line text-dash-mute hover:text-dash-text'
+            }`}
+          >
+            All
+          </button>
+          {allTags.map((t) => (
+            <button
+              key={t}
+              onClick={() => toggleTag(t)}
+              className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                selectedTags.has(t)
+                  ? 'border-dash-indigo/60 bg-dash-indigo/20 text-dash-indigoBright'
+                  : 'border-dash-line text-dash-mute hover:text-dash-text'
+              }`}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
         {loading && statuses.length === 0 ? (
           <div className="py-12 text-center text-sm text-dash-mute">Loading projects…</div>
@@ -95,9 +152,13 @@ export default function ProjectsView({ onOpenProject }: Props) {
           <div className="py-12 text-center text-sm text-dash-mute">
             No projects yet. Click "+ Add project" to register your first one.
           </div>
+        ) : filteredStatuses.length === 0 ? (
+          <div className="py-12 text-center text-sm text-dash-mute">
+            No projects match the selected tags.
+          </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 pb-4 md:grid-cols-2">
-            {statuses.map((s) => (
+            {filteredStatuses.map((s) => (
               <ProjectCard
                 key={s.project.id}
                 data={s}
@@ -108,6 +169,7 @@ export default function ProjectsView({ onOpenProject }: Props) {
                 onRemove={() => handleDelete(s.project.id)}
                 onAction={() => void load(false)}
                 onOpen={(tab) => onOpenProject(s.project.id, tab)}
+                onQuickCommit={() => setQuickCommitFor({ id: s.project.id, name: s.project.name })}
               />
             ))}
           </div>
@@ -128,6 +190,18 @@ export default function ProjectsView({ onOpenProject }: Props) {
           }}
         />
       )}
+
+      {quickCommitFor && (
+        <QuickCommitModal
+          projectId={quickCommitFor.id}
+          projectName={quickCommitFor.name}
+          onClose={() => setQuickCommitFor(null)}
+          onSuccess={() => {
+            setQuickCommitFor(null);
+            void load(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -141,6 +215,7 @@ function ProjectCard({
   onRemove,
   onAction,
   onOpen,
+  onQuickCommit,
 }: {
   data: ProjectStatus;
   uptime: UptimeSummary | null;
@@ -150,6 +225,7 @@ function ProjectCard({
   onRemove: () => void;
   onAction: () => void;
   onOpen: (tab?: 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release') => void;
+  onQuickCommit: () => void;
 }) {
   const { project, git, framework, devserver } = data;
   const [busy, setBusy] = useState<string | null>(null);
@@ -346,6 +422,25 @@ function ProjectCard({
         >
           ⇣ Pull
         </ActionBtn>
+        <ActionBtn
+          disabled={busy !== null || !git.ok}
+          onClick={onQuickCommit}
+        >
+          ✓ Commit
+        </ActionBtn>
+        {project.deployProvider !== 'none' && project.deployId && (
+          <ActionBtn
+            disabled={busy !== null}
+            onClick={() =>
+              runAction('Redeploy', async () => {
+                if (!confirm(`Trigger a redeploy on ${project.deployProvider}?`)) return { ok: true };
+                return window.devdash.deploys.trigger(project.id);
+              })
+            }
+          >
+            🚀 Redeploy
+          </ActionBtn>
+        )}
         <ActionBtn disabled={busy !== null} onClick={() => onOpen('release')}>
           🏷 Release
         </ActionBtn>

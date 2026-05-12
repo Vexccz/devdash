@@ -2,6 +2,23 @@
 
 All notable changes to DevDash are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/), dates in `YYYY-MM-DD`.
 
+## [0.3.0] - 2026-05-13
+
+Ships the full v0.3.0 scope: critical fixes plus three high-impact feature additions.
+
+### Added
+- **Project tags** — projects accept free-form tags in the Add/Edit modal (pill-style input, Enter to add, Backspace to remove). A filter row above the project grid allows multi-select filtering by tag. Tags persist in `config.json` under `ProjectConfig.tags`.
+- **Quick commit** — new `✓ Commit` action on each project card opens a modal showing `git status --short`, a commit-message textarea, and optional stage-all / push-after-commit checkboxes. Executes through `simple-git` for stage/commit and the new `gitsafe` wrapper for push.
+- **Manual redeploy** — projects configured with a Vercel project ID or Render service ID gain a `🚀 Redeploy` action that triggers a fresh production deployment via the provider API. Vercel uses `POST /v13/deployments` with `target: production`; Render uses `POST /v1/services/{id}/deploys`.
+- New preload APIs: `projects.quickCommit`, `projects.gitStatusShort`, `deploys.trigger`.
+
+### Fixed
+- Carries the three critical fixes from the 0.3.0-batch1 preview (Sentry org resolution, PowerShell git stderr noise, non-breaking npm audit remediation).
+
+### Known issues
+- The 15 advisories requiring breaking bumps (Electron 32→42, Vite 5→8, @electron/rebuild 3→4) remain deferred.
+- The larger v0.3.0 vision (Ollama chat panel, keyboard shortcuts overlay, config export/import, light mode, cron automations, PR status, diff viewer, DB health, Render metrics, Vercel analytics, project detail breadcrumb) is not in this release and is planned for v0.4.0.
+
 ## [0.3.0-batch1] - 2026-05-13
 
 Partial v0.3.0 release. Batches 2 and 3 ship the remaining v0.3.0 scope; this batch is the three critical fixes.
