@@ -391,6 +391,54 @@ function registerIpc() {
     }
   });
 
+  ipcMain.handle('projects:gitDiff', async (_e, args: { id: string; staged: boolean }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === args.id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    try {
+      const { simpleGit } = await import('simple-git');
+      const git = simpleGit(project.path);
+      const flags = args.staged ? ['--cached'] : [];
+      const diff = await git.diff(flags);
+      return { ok: true, diff: diff || '(no changes)', staged: args.staged };
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Diff failed' };
+    }
+  });
+
+  ipcMain.handle('projects:prList', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    if (!fs.existsSync(project.path)) return { ok: false, error: 'Path missing' };
+    return new Promise((resolve) => {
+      const proc = spawn('gh', ['pr', 'list', '--json', 'number,title,author,state,isDraft,mergeable,url,headRefName,updatedAt', '--limit', '20'], {
+        cwd: project.path,
+        windowsHide: true,
+        shell: true,
+      });
+      let stdout = '';
+      let stderr = '';
+      proc.stdout.on('data', (d) => (stdout += d.toString()));
+      proc.stderr.on('data', (d) => (stderr += d.toString()));
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          resolve({ ok: false, error: stderr.trim() || `gh exited with code ${code}` });
+          return;
+        }
+        try {
+          const prs = JSON.parse(stdout);
+          resolve({ ok: true, prs });
+        } catch {
+          resolve({ ok: false, error: 'Failed to parse gh output' });
+        }
+      });
+      proc.on('error', (err) => {
+        resolve({ ok: false, error: err.message || 'gh CLI not found' });
+      });
+    });
+  });
+
   ipcMain.handle('projects:gitStatusShort', async (_e, id: string) => {
     const cfg = loadConfig();
     const project = cfg.projects.find((p) => p.id === id);

@@ -289,6 +289,8 @@ declare global {
         framework: (id: string) => Promise<FrameworkInfo | null>;
         quickCommit: (args: { id: string; message: string; stageAll: boolean; push: boolean }) => Promise<{ ok: boolean; commit?: string; pushed?: boolean; pushError?: string | null; error?: string }>;
         gitStatusShort: (id: string) => Promise<{ ok: boolean; output?: string; lineCount?: number; error?: string }>;
+        gitDiff: (id: string, staged: boolean) => Promise<{ ok: boolean; diff?: string; staged?: boolean; error?: string }>;
+        prList: (id: string) => Promise<{ ok: boolean; prs?: Array<{ number: number; title: string; author: { login: string }; state: string; isDraft: boolean; mergeable: string; url: string; headRefName: string; updatedAt: string }>; error?: string }>;
       };
       devserver: {
         start: (id: string) => Promise<{ ok: boolean; error?: string; framework?: FrameworkInfo }>;

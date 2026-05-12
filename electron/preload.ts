@@ -19,6 +19,8 @@ const api = {
     quickCommit: (args: { id: string; message: string; stageAll: boolean; push: boolean }) =>
       ipcRenderer.invoke('projects:quickCommit', args),
     gitStatusShort: (id: string) => ipcRenderer.invoke('projects:gitStatusShort', id),
+    gitDiff: (id: string, staged: boolean) => ipcRenderer.invoke('projects:gitDiff', { id, staged }),
+    prList: (id: string) => ipcRenderer.invoke('projects:prList', id),
   },
   devserver: {
     start: (id: string) => ipcRenderer.invoke('devserver:start', id),

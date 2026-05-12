@@ -2,6 +2,21 @@
 
 All notable changes to DevDash are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/), dates in `YYYY-MM-DD`.
 
+## [0.7.0] - 2026-05-13
+
+Adds git diff viewer and GitHub pull request status per project.
+
+### Added
+- **Diff viewer** — a new `□ Diff` action on each project card opens a modal displaying the project's git diff. Toggle between Unstaged and Staged views. Hunks are color-coded (additions in green, removals in red, hunk headers in indigo) for quick scanning.
+- **Pull request status** — a new `🔀 PRs` action (enabled when a GitHub URL is configured) lists up to 20 open pull requests via the `gh` CLI. Each row shows number, title, author, head branch, relative update time, draft status, and mergeability. Click any row to open the PR in the default browser.
+
+### Requirements
+- The PR status feature requires the GitHub CLI (`gh`) to be installed and authenticated (`gh auth login`). If `gh` is missing or not authenticated, the modal surfaces a clear error.
+
+### Known issues
+- PR list is scoped to the upstream repository detected by `gh` from the local clone. Forks with a different origin may require manual repo selection.
+- Scheduled automations, database health, Render service metrics, Vercel analytics, project detail breadcrumb, and the Electron major-version upgrade remain deferred.
+
 ## [0.6.0] - 2026-05-13
 
 Adds syntax highlighting and encrypted configuration backup.

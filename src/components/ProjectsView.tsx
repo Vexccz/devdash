@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import type { BundleSizeRow, DepSummary, ProjectConfig, ProjectStatus, UptimeSummary } from '../types';
 import AddProjectModal from './AddProjectModal';
 import QuickCommitModal from './QuickCommitModal';
+import DiffViewerModal from './DiffViewerModal';
+import PRListModal from './PRListModal';
 
 interface Props {
   onOpenProject: (id: string, tab?: 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release') => void;
@@ -19,6 +21,8 @@ export default function ProjectsView({ onOpenProject }: Props) {
   const [bundleLatest, setBundleLatest] = useState<Record<string, BundleSizeRow | null>>({});
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [quickCommitFor, setQuickCommitFor] = useState<{ id: string; name: string } | null>(null);
+  const [diffFor, setDiffFor] = useState<{ id: string; name: string } | null>(null);
+  const [prsFor, setPrsFor] = useState<{ id: string; name: string } | null>(null);
 
   const load = async (fetchRemote = false) => {
     setLoading(true);
@@ -170,6 +174,8 @@ export default function ProjectsView({ onOpenProject }: Props) {
                 onAction={() => void load(false)}
                 onOpen={(tab) => onOpenProject(s.project.id, tab)}
                 onQuickCommit={() => setQuickCommitFor({ id: s.project.id, name: s.project.name })}
+                onOpenDiff={() => setDiffFor({ id: s.project.id, name: s.project.name })}
+                onOpenPRs={() => setPrsFor({ id: s.project.id, name: s.project.name })}
               />
             ))}
           </div>
@@ -202,6 +208,22 @@ export default function ProjectsView({ onOpenProject }: Props) {
           }}
         />
       )}
+
+      {diffFor && (
+        <DiffViewerModal
+          projectId={diffFor.id}
+          projectName={diffFor.name}
+          onClose={() => setDiffFor(null)}
+        />
+      )}
+
+      {prsFor && (
+        <PRListModal
+          projectId={prsFor.id}
+          projectName={prsFor.name}
+          onClose={() => setPrsFor(null)}
+        />
+      )}
     </div>
   );
 }
@@ -216,6 +238,8 @@ function ProjectCard({
   onAction,
   onOpen,
   onQuickCommit,
+  onOpenDiff,
+  onOpenPRs,
 }: {
   data: ProjectStatus;
   uptime: UptimeSummary | null;
@@ -226,6 +250,8 @@ function ProjectCard({
   onAction: () => void;
   onOpen: (tab?: 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release') => void;
   onQuickCommit: () => void;
+  onOpenDiff: () => void;
+  onOpenPRs: () => void;
 }) {
   const { project, git, framework, devserver } = data;
   const [busy, setBusy] = useState<string | null>(null);
@@ -427,6 +453,18 @@ function ProjectCard({
           onClick={onQuickCommit}
         >
           ✓ Commit
+        </ActionBtn>
+        <ActionBtn
+          disabled={busy !== null || !git.ok}
+          onClick={onOpenDiff}
+        >
+          □ Diff
+        </ActionBtn>
+        <ActionBtn
+          disabled={busy !== null || !project.githubUrl}
+          onClick={onOpenPRs}
+        >
+          🔀 PRs
         </ActionBtn>
         {project.deployProvider !== 'none' && project.deployId && (
           <ActionBtn
