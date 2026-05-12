@@ -61,10 +61,10 @@ export default function SettingsView() {
       </section>
 
       <section className="card p-4">
-        <h2 className="mb-3 text-sm font-semibold text-dash-text">Polling</h2>
-        <div className="flex items-center gap-3 text-xs">
-          <label className="flex items-center gap-2">
-            <span className="text-dash-mute">Refresh every</span>
+        <h2 className="mb-3 text-sm font-semibold text-dash-text">Polling & background jobs</h2>
+        <div className="flex flex-col gap-3 text-xs">
+          <label className="flex items-center gap-3">
+            <span className="w-48 text-dash-mute">Deploy poll interval</span>
             <input
               type="number"
               min={1}
@@ -78,7 +78,88 @@ export default function SettingsView() {
             />
             <span className="text-dash-mute">minutes</span>
           </label>
-          <span className="text-[11px] text-dash-mute">(default 5, min 1, max 120)</span>
+          <label className="flex items-center gap-3">
+            <span className="w-48 text-dash-mute">Uptime check interval</span>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={settings.uptimeIntervalMinutes}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (!Number.isNaN(n) && n >= 1 && n <= 60) update({ uptimeIntervalMinutes: n });
+              }}
+              className="w-20 rounded-md border border-dash-line bg-dash-bg px-2 py-1 text-center font-mono text-sm text-dash-text"
+            />
+            <span className="text-dash-mute">minutes</span>
+          </label>
+          <label className="flex items-center gap-3">
+            <span className="w-48 text-dash-mute">Task timer idle timeout</span>
+            <input
+              type="number"
+              min={1}
+              max={60}
+              value={settings.idleTimeoutMinutes}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (!Number.isNaN(n) && n >= 1 && n <= 60) update({ idleTimeoutMinutes: n });
+              }}
+              className="w-20 rounded-md border border-dash-line bg-dash-bg px-2 py-1 text-center font-mono text-sm text-dash-text"
+            />
+            <span className="text-dash-mute">minutes</span>
+          </label>
+          <Toggle
+            label="Uptime monitoring"
+            description="Periodic HTTP GET on each project's live URL."
+            value={settings.uptimeEnabled}
+            onChange={(v) => update({ uptimeEnabled: v })}
+          />
+          <Toggle
+            label="Bundle size watch"
+            description="Records dist/ size on mtime change, tracks delta vs 7-day avg."
+            value={settings.bundleWatchEnabled}
+            onChange={(v) => update({ bundleWatchEnabled: v })}
+          />
+          <Toggle
+            label="Weekly dependency check"
+            description="Runs `npm outdated` on each Node project every Monday at 09:00."
+            value={settings.depsCheckEnabled}
+            onChange={(v) => update({ depsCheckEnabled: v })}
+          />
+          <Toggle
+            label="Daily screenshot capture"
+            description="Uses Electron headless BrowserWindow to snap each live URL daily."
+            value={settings.screenshotsEnabled}
+            onChange={(v) => update({ screenshotsEnabled: v })}
+          />
+          <label className="flex items-center gap-3">
+            <span className="w-48 text-dash-mute">Screenshot hour (24h)</span>
+            <input
+              type="number"
+              min={0}
+              max={23}
+              value={settings.screenshotHour}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (!Number.isNaN(n) && n >= 0 && n <= 23) update({ screenshotHour: n });
+              }}
+              className="w-20 rounded-md border border-dash-line bg-dash-bg px-2 py-1 text-center font-mono text-sm text-dash-text"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section className="card p-4">
+        <h2 className="mb-3 text-sm font-semibold text-dash-text">Error budget (Sentry)</h2>
+        <div className="flex flex-col gap-2 text-xs">
+          <TokenField
+            label="Sentry auth token"
+            hint="Optional. Needed to pull per-day error counts for projects with a Sentry DSN."
+            value={settings.sentryAuthToken}
+            show={false}
+            onToggleShow={() => {}}
+            onChange={(v) => update({ sentryAuthToken: v })}
+          />
         </div>
       </section>
 

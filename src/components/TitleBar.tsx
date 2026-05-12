@@ -12,7 +12,7 @@ export default function TitleBar({ onMinimize, onMaximize, onClose }: Props) {
           <LogoMark />
         </span>
         <span className="font-semibold tracking-wide text-dash-indigoBright">DevDash</span>
-        <span className="text-dash-mute">v0.1.0</span>
+        <span className="text-dash-mute">v0.2.0</span>
       </div>
       <div className="no-drag flex items-center gap-1">
         <button

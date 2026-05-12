@@ -1,14 +1,21 @@
 import { useEffect, useState } from 'react';
-import type { ProjectConfig, ProjectStatus } from '../types';
+import type { BundleSizeRow, DepSummary, ProjectConfig, ProjectStatus, UptimeSummary } from '../types';
 import AddProjectModal from './AddProjectModal';
 
-export default function ProjectsView() {
+interface Props {
+  onOpenProject: (id: string, tab?: 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release') => void;
+}
+
+export default function ProjectsView({ onOpenProject }: Props) {
   const [statuses, setStatuses] = useState<ProjectStatus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showAdd, setShowAdd] = useState<boolean>(false);
   const [editing, setEditing] = useState<ProjectConfig | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [lastFetchAt, setLastFetchAt] = useState<number>(0);
+  const [uptime, setUptime] = useState<Record<string, UptimeSummary>>({});
+  const [depSummaries, setDepSummaries] = useState<Record<string, DepSummary | null>>({});
+  const [bundleLatest, setBundleLatest] = useState<Record<string, BundleSizeRow | null>>({});
 
   const load = async (fetchRemote = false) => {
     setLoading(true);
@@ -16,6 +23,21 @@ export default function ProjectsView() {
       const list = await window.devdash.projects.statusAll(fetchRemote);
       setStatuses(list);
       if (fetchRemote) setLastFetchAt(Date.now());
+
+      const sums = await window.devdash.uptime.all();
+      const map: Record<string, UptimeSummary> = {};
+      for (const s of sums) map[s.projectId] = s;
+      setUptime(map);
+
+      const dep: Record<string, DepSummary | null> = {};
+      const bundle: Record<string, BundleSizeRow | null> = {};
+      for (const s of list) {
+        dep[s.project.id] = await window.devdash.deps.latest(s.project.id);
+        const hist = await window.devdash.bundle.history(s.project.id);
+        bundle[s.project.id] = hist[0] ?? null;
+      }
+      setDepSummaries(dep);
+      setBundleLatest(bundle);
     } finally {
       setLoading(false);
     }
@@ -23,6 +45,8 @@ export default function ProjectsView() {
 
   useEffect(() => {
     void load(false);
+    const off = window.devdash.devserver.onStatus(() => void load(false));
+    return () => off();
   }, []);
 
   const handleRefresh = async () => {
@@ -51,13 +75,13 @@ export default function ProjectsView() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="rounded-md border border-dash-line bg-dash-panel px-3 py-1.5 text-xs text-dash-text hover:border-dash-indigo/60 disabled:opacity-50"
+            className="btn-soft"
           >
             {refreshing ? 'Fetching…' : 'Refresh + git fetch'}
           </button>
           <button
             onClick={() => setShowAdd(true)}
-            className="rounded-md bg-dash-indigo px-3 py-1.5 text-xs font-medium text-white hover:bg-dash-indigoBright"
+            className="btn-primary"
           >
             + Add project
           </button>
@@ -77,9 +101,13 @@ export default function ProjectsView() {
               <ProjectCard
                 key={s.project.id}
                 data={s}
+                uptime={uptime[s.project.id] ?? null}
+                deps={depSummaries[s.project.id] ?? null}
+                bundle={bundleLatest[s.project.id] ?? null}
                 onEdit={() => setEditing(s.project)}
                 onRemove={() => handleDelete(s.project.id)}
                 onAction={() => void load(false)}
+                onOpen={(tab) => onOpenProject(s.project.id, tab)}
               />
             ))}
           </div>
@@ -106,16 +134,24 @@ export default function ProjectsView() {
 
 function ProjectCard({
   data,
+  uptime,
+  deps,
+  bundle,
   onEdit,
   onRemove,
   onAction,
+  onOpen,
 }: {
   data: ProjectStatus;
+  uptime: UptimeSummary | null;
+  deps: DepSummary | null;
+  bundle: BundleSizeRow | null;
   onEdit: () => void;
   onRemove: () => void;
   onAction: () => void;
+  onOpen: (tab?: 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release') => void;
 }) {
-  const { project, git } = data;
+  const { project, git, framework, devserver } = data;
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -149,23 +185,47 @@ function ProjectCard({
     return <span className="h-2 w-2 rounded-full bg-dash-ok" title="Clean" />;
   })();
 
+  const uptimeDot = uptime?.latestOk === false ? (
+    <span title="Live URL down" className="h-2 w-2 rounded-full bg-dash-err" />
+  ) : uptime?.latestOk === true ? (
+    <span title="Live URL up" className="h-2 w-2 rounded-full bg-dash-ok" />
+  ) : null;
+
+  const depBadge = deps && deps.majorCount > 0 ? (
+    <span className="rounded bg-dash-err/20 px-1.5 py-0.5 text-[10px] uppercase text-dash-err">
+      {deps.majorCount} major
+    </span>
+  ) : deps && deps.minorCount > 0 ? (
+    <span className="rounded bg-dash-warn/20 px-1.5 py-0.5 text-[10px] uppercase text-dash-warn">
+      {deps.minorCount} minor
+    </span>
+  ) : null;
+
+  const devManagedRunning = devserver?.running;
+  const frameworkLabel = framework?.label ?? 'unknown';
+
   return (
     <div className="card flex flex-col gap-3 p-4 shadow-card transition">
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+        <button onClick={() => onOpen('overview')} className="min-w-0 flex-1 cursor-pointer text-left">
+          <div className="flex flex-wrap items-center gap-2">
             {statusDot}
             <h3 className="truncate text-sm font-semibold text-dash-text">{project.name}</h3>
+            <span className="rounded bg-dash-panel2 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-dash-mute">
+              {frameworkLabel}
+            </span>
             {project.deployProvider !== 'none' && (
               <span className="rounded bg-dash-indigo/20 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-dash-indigoBright">
                 {project.deployProvider}
               </span>
             )}
+            {uptimeDot}
+            {depBadge}
           </div>
           <p className="mt-1 truncate font-mono text-[11px] text-dash-mute" title={project.path}>
             {project.path}
           </p>
-        </div>
+        </button>
         <div className="flex shrink-0 gap-1">
           <IconBtn title="Edit" onClick={onEdit}>
             ✎
@@ -199,9 +259,19 @@ function ProjectCard({
           )}
         </Field>
         <Field label="Dev server">
-          <span className="font-mono">
-            {git.devPort ? `:${git.devPort}` : git.devScript ?? '—'}
-          </span>
+          {devManagedRunning ? (
+            <button
+              onClick={() => framework?.localUrl && open(framework.localUrl)}
+              className="font-mono text-dash-ok hover:underline"
+              title={framework?.localUrl ?? 'running'}
+            >
+              ● :{framework?.port ?? '…'}
+            </button>
+          ) : (
+            <span className="font-mono text-dash-mute">
+              {framework?.port ? `:${framework.port}` : '—'}
+            </span>
+          )}
         </Field>
       </div>
 
@@ -216,6 +286,7 @@ function ProjectCard({
             </div>
             <div className="mt-1 text-dash-mute">
               {git.lastCommit.author} · {formatRelative(new Date(git.lastCommit.date).getTime())}
+              {bundle && <span> · bundle {humanSize(bundle.sizeBytes)}</span>}
             </div>
           </div>
         ) : (
@@ -230,6 +301,27 @@ function ProjectCard({
       )}
 
       <div className="flex flex-wrap gap-1.5">
+        {devManagedRunning ? (
+          <ActionBtn
+            disabled={busy !== null}
+            onClick={() => runAction('Stop dev', () => window.devdash.devserver.stop(project.id))}
+          >
+            ■ Stop
+          </ActionBtn>
+        ) : (
+          <ActionBtn
+            disabled={busy !== null || framework?.id === 'unknown'}
+            onClick={() => runAction('Run dev', () => window.devdash.devserver.start(project.id))}
+          >
+            ▶ Run
+          </ActionBtn>
+        )}
+        <ActionBtn disabled={busy !== null} onClick={() => onOpen('logs')}>
+          📜 Logs
+        </ActionBtn>
+        <ActionBtn disabled={busy !== null} onClick={() => onOpen('env')}>
+          🔐 Env
+        </ActionBtn>
         <ActionBtn
           disabled={busy !== null}
           onClick={() => runAction('Open folder', () => window.devdash.projects.openFolder(project.path))}
@@ -249,16 +341,13 @@ function ProjectCard({
           🌐 Live
         </ActionBtn>
         <ActionBtn
-          disabled={busy !== null}
-          onClick={() => runAction('Run dev', () => window.devdash.projects.runDev(project.id))}
-        >
-          ▶ Dev
-        </ActionBtn>
-        <ActionBtn
           disabled={busy !== null || !git.ok}
           onClick={() => runAction('Git pull', () => window.devdash.projects.pull(project.id))}
         >
           ⇣ Pull
+        </ActionBtn>
+        <ActionBtn disabled={busy !== null} onClick={() => onOpen('release')}>
+          🏷 Release
         </ActionBtn>
       </div>
     </div>
@@ -284,11 +373,7 @@ function ActionBtn({
   disabled?: boolean;
 }) {
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="rounded-md border border-dash-line bg-dash-panel/60 px-2 py-1 text-[11px] text-dash-text hover:border-dash-indigo/60 hover:bg-dash-indigo/10 disabled:cursor-not-allowed disabled:opacity-40"
-    >
+    <button onClick={onClick} disabled={disabled} className="btn-soft">
       {children}
     </button>
   );
@@ -328,4 +413,11 @@ function formatRelative(timestamp: number): string {
   const mo = Math.floor(d / 30);
   if (mo < 12) return `${mo}mo ago`;
   return `${Math.floor(mo / 12)}y ago`;
+}
+
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }

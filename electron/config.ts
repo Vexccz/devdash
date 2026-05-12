@@ -13,6 +13,9 @@ export interface ProjectConfig {
   deployProvider: DeployProvider;
   /** Vercel projectId or Render serviceId depending on provider */
   deployId?: string;
+  sentryDsn?: string;
+  logsFolder?: string;
+  errorThresholdPerDay?: number;
 }
 
 export interface AppConfig {
@@ -23,6 +26,14 @@ export interface AppConfig {
     pollIntervalMinutes: number;
     darkMode: boolean;
     autoLaunch: boolean;
+    uptimeIntervalMinutes: number;
+    uptimeEnabled: boolean;
+    bundleWatchEnabled: boolean;
+    depsCheckEnabled: boolean;
+    screenshotsEnabled: boolean;
+    screenshotHour: number;
+    sentryAuthToken: string;
+    idleTimeoutMinutes: number;
   };
 }
 
@@ -34,6 +45,14 @@ const DEFAULT_CONFIG: AppConfig = {
     pollIntervalMinutes: 5,
     darkMode: true,
     autoLaunch: false,
+    uptimeIntervalMinutes: 5,
+    uptimeEnabled: true,
+    bundleWatchEnabled: true,
+    depsCheckEnabled: true,
+    screenshotsEnabled: false,
+    screenshotHour: 9,
+    sentryAuthToken: '',
+    idleTimeoutMinutes: 2,
   },
 };
 
@@ -93,6 +112,12 @@ export function cacheDbPath(): string {
 
 export function logsPath(): string {
   return path.join(configDir(), 'logs');
+}
+
+export function screenshotsDir(): string {
+  const dir = path.join(configDir(), 'screenshots');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
 }
 
 let cached: AppConfig | null = null;

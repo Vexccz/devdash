@@ -1,15 +1,51 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import TitleBar from './components/TitleBar';
 import Sidebar from './components/Sidebar';
 import ProjectsView from './components/ProjectsView';
 import DeploysView from './components/DeploysView';
 import SettingsView from './components/SettingsView';
+import UptimeView from './components/UptimeView';
+import TimeView from './components/TimeView';
+import DepsView from './components/DepsView';
+import ProjectDetail from './components/ProjectDetail';
+import CommandPalette from './components/CommandPalette';
 import Toasts from './components/Toasts';
+import type { ProjectConfig } from './types';
 
-type Tab = 'projects' | 'deploys' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'settings';
+type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release';
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('projects');
+  const [projects, setProjects] = useState<ProjectConfig[]>([]);
+  const [detail, setDetail] = useState<{ project: ProjectConfig; initialTab?: DetailTab } | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  const loadProjects = async () => {
+    setProjects(await window.devdash.projects.list());
+  };
+
+  useEffect(() => {
+    void loadProjects();
+  }, []);
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((p) => !p);
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  const openProject = async (id: string, detailTab: DetailTab = 'overview') => {
+    const list = await window.devdash.projects.list();
+    setProjects(list);
+    const project = list.find((p) => p.id === id);
+    if (project) setDetail({ project, initialTab: detailTab });
+  };
 
   return (
     <div className="relative flex h-screen w-screen flex-col bg-dash-bg text-dash-text">
@@ -21,11 +57,32 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         <Sidebar tab={tab} onChange={setTab} />
         <main className="no-drag flex min-w-0 flex-1 flex-col overflow-hidden px-5 py-4">
-          {tab === 'projects' && <ProjectsView />}
+          {tab === 'projects' && <ProjectsView onOpenProject={openProject} />}
           {tab === 'deploys' && <DeploysView />}
+          {tab === 'uptime' && <UptimeView onOpenProject={(id) => openProject(id, 'overview')} />}
+          {tab === 'time' && <TimeView onOpenProject={(id) => openProject(id, 'time')} />}
+          {tab === 'deps' && <DepsView onOpenProject={(id) => openProject(id, 'deps')} />}
           {tab === 'settings' && <SettingsView />}
         </main>
       </div>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        projects={projects}
+        onOpenProject={openProject}
+        onSwitchTab={setTab}
+      />
+      {detail && (
+        <ProjectDetail
+          project={detail.project}
+          initialTab={detail.initialTab}
+          allProjects={projects}
+          onClose={() => {
+            setDetail(null);
+            void loadProjects();
+          }}
+        />
+      )}
       <Toasts />
     </div>
   );

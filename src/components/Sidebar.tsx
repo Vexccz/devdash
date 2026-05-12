@@ -1,4 +1,4 @@
-type Tab = 'projects' | 'deploys' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'settings';
 
 interface Props {
   tab: Tab;
@@ -9,6 +9,9 @@ export default function Sidebar({ tab, onChange }: Props) {
   const items: { id: Tab; label: string; icon: JSX.Element }[] = [
     { id: 'projects', label: 'Projects', icon: <FolderIcon /> },
     { id: 'deploys', label: 'Deploys', icon: <RadarIcon /> },
+    { id: 'uptime', label: 'Uptime', icon: <PulseIcon /> },
+    { id: 'time', label: 'Time', icon: <ClockIcon /> },
+    { id: 'deps', label: 'Deps', icon: <BoxIcon /> },
     { id: 'settings', label: 'Settings', icon: <GearIcon /> },
   ];
 
@@ -36,7 +39,11 @@ export default function Sidebar({ tab, onChange }: Props) {
       </nav>
       <div className="mt-auto px-3 pt-4 text-[10px] leading-relaxed text-dash-mute">
         <p>Solo dev companion.</p>
-        <p className="mt-1">Git status, deploys, quick actions.</p>
+        <p className="mt-1">
+          Press <kbd className="rounded border border-dash-line px-1 font-mono">Ctrl</kbd>+
+          <kbd className="ml-0.5 rounded border border-dash-line px-1 font-mono">K</kbd> for
+          palette.
+        </p>
       </div>
     </aside>
   );
@@ -56,6 +63,32 @@ function RadarIcon() {
       <circle cx="8" cy="8" r="6" />
       <circle cx="8" cy="8" r="3" />
       <path d="M8 8 L12 5" />
+    </svg>
+  );
+}
+
+function PulseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M1 8h3l2-4 3 8 2-4h4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <circle cx="8" cy="8" r="6" />
+      <path d="M8 4.5V8l2.5 2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BoxIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 5l6-3 6 3v6l-6 3-6-3V5z" strokeLinejoin="round" />
+      <path d="M2 5l6 3 6-3M8 8v7" />
     </svg>
   );
 }

@@ -14,6 +14,8 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
   const [liveUrl, setLiveUrl] = useState(initial?.liveUrl ?? '');
   const [deployProvider, setDeployProvider] = useState<DeployProvider>(initial?.deployProvider ?? 'none');
   const [deployId, setDeployId] = useState(initial?.deployId ?? '');
+  const [sentryDsn, setSentryDsn] = useState(initial?.sentryDsn ?? '');
+  const [logsFolder, setLogsFolder] = useState(initial?.logsFolder ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +48,8 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
         liveUrl: liveUrl.trim() || undefined,
         deployProvider,
         deployId: deployId.trim() || undefined,
+        sentryDsn: sentryDsn.trim() || undefined,
+        logsFolder: logsFolder.trim() || undefined,
       };
       if (initial) {
         await window.devdash.projects.update(initial.id, payload);
@@ -149,6 +153,24 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
               />
             </Field>
           </div>
+
+          <Field label="Sentry DSN (optional)">
+            <input
+              value={sentryDsn}
+              onChange={(e) => setSentryDsn(e.target.value)}
+              className="w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+              placeholder="https://xxx@sentry.io/12345"
+            />
+          </Field>
+
+          <Field label="Logs folder (optional; falls back to <path>/logs)">
+            <input
+              value={logsFolder}
+              onChange={(e) => setLogsFolder(e.target.value)}
+              className="w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+              placeholder="C:\\Users\\...\\project\\logs"
+            />
+          </Field>
         </div>
 
         {error && <div className="mt-3 text-[11px] text-dash-err">{error}</div>}

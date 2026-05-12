@@ -25,7 +25,24 @@ import {
 } from './config';
 import { getGitInfo, gitPull, detectDevServer } from './git';
 import { fetchAllDeploys } from './deploys';
-import { initCacheDb, upsertDeploys, readAllDeploys, getDeployStatusById, closeCacheDb } from './cache';
+import {
+  initCacheDb,
+  upsertDeploys,
+  readAllDeploys,
+  closeCacheDb,
+} from './cache';
+import * as childprocs from './childprocs';
+import * as envman from './envman';
+import * as timer from './timer';
+import * as uptime from './uptime';
+import * as scheduler from './scheduler';
+import * as depcheck from './depcheck';
+import * as bundlesize from './bundlesize';
+import * as heatmap from './heatmap';
+import * as screenshots from './screenshots';
+import { detectFramework } from './frameworks';
+import { generateChangelog, writeChangelogToProject } from './changelog';
+import { performRelease } from './release';
 
 const isDev = !app.isPackaged;
 const DEV_URL = 'http://localhost:5173';
@@ -64,7 +81,6 @@ function createTrayImage(): Electron.NativeImage {
       /* ignore */
     }
   }
-  // Fallback: tiny 16x16 indigo square
   const indigoPng = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAI0lEQVR42mP8z8BQz0AEYBxVSF2FxFVIXIXEVUhchcRVSFwFAMJRAv+nYfszAAAAAElFTkSuQmCC',
     'base64'
@@ -81,10 +97,10 @@ function broadcast(channel: string, payload: unknown) {
 function createMainWindow() {
   const cfg = loadConfig();
   mainWindow = new BrowserWindow({
-    width: 960,
-    height: 640,
-    minWidth: 820,
-    minHeight: 560,
+    width: 1080,
+    height: 720,
+    minWidth: 860,
+    minHeight: 580,
     frame: false,
     backgroundColor: '#0b0b14',
     show: false,
@@ -119,12 +135,13 @@ function createMainWindow() {
     return { action: 'deny' };
   });
 
-  // Apply auto-launch if configured
   try {
     app.setLoginItemSettings({ openAtLogin: !!cfg.settings.autoLaunch });
   } catch {
     /* ignore */
   }
+
+  childprocs.bindBroadcast(() => mainWindow);
 }
 
 function setupTray() {
@@ -137,6 +154,12 @@ function setupTray() {
       label: 'Refresh deploys',
       click: () => {
         void refreshDeploys(true);
+      },
+    },
+    {
+      label: 'Run uptime check now',
+      click: () => {
+        void scheduler.runNow('uptime');
       },
     },
     { type: 'separator' },
@@ -181,7 +204,6 @@ async function refreshDeploys(manual = false): Promise<void> {
     return;
   }
 
-  // Capture previous statuses to detect transitions
   const previous = new Map<string, string>();
   for (const row of readAllDeploys(200)) {
     previous.set(`${row.provider}:${row.id}`, row.status);
@@ -194,7 +216,6 @@ async function refreshDeploys(manual = false): Promise<void> {
 
   upsertDeploys(items);
 
-  // Detect transitions
   for (const item of items) {
     const key = `${item.provider}:${item.id}`;
     const prev = previous.get(key);
@@ -231,12 +252,11 @@ function stopPolling() {
   }
 }
 
-function runDevServer(project: ProjectConfig): { ok: boolean; error?: string } {
+function runDevServerDetached(project: ProjectConfig): { ok: boolean; error?: string } {
   if (!fs.existsSync(project.path)) return { ok: false, error: 'Project path missing' };
   const info = detectDevServer(project.path);
-  const script = info.script ?? 'dev';
-  const command = `npm run ${script === info.script ? 'dev' : 'dev'}`;
-  // On Windows, launch a new PowerShell window so user can see output
+  const script = info.script ? (info.script === 'start' ? 'start' : 'dev') : 'dev';
+  const command = `npm run ${script}`;
   try {
     spawn(
       'powershell.exe',
@@ -274,6 +294,8 @@ function registerIpc() {
       cfg.projects.map(async (p) => ({
         project: p,
         git: await getGitInfo(p.path, { fetch: !!fetchRemote }),
+        framework: detectFramework(p.path),
+        devserver: childprocs.getStatus(p.id),
       }))
     );
     return results;
@@ -324,7 +346,7 @@ function registerIpc() {
     const cfg = loadConfig();
     const project = cfg.projects.find((p) => p.id === id);
     if (!project) return { ok: false, error: 'Project not found' };
-    return runDevServer(project);
+    return runDevServerDetached(project);
   });
 
   ipcMain.handle('projects:pull', async (_e, id: string) => {
@@ -334,16 +356,179 @@ function registerIpc() {
     return gitPull(project.path);
   });
 
+  ipcMain.handle('projects:framework', (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return null;
+    return detectFramework(project.path);
+  });
+
+  // Devserver managed process
+  ipcMain.handle('devserver:start', (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    return childprocs.startDev(id, project.path);
+  });
+  ipcMain.handle('devserver:stop', (_e, id: string) => childprocs.stopDev(id));
+  ipcMain.handle('devserver:status', (_e, id: string) => childprocs.getStatus(id));
+  ipcMain.handle('devserver:statusAll', () => childprocs.getAllStatuses());
+  ipcMain.handle('devserver:logs', (_e, { id, limit }: { id: string; limit?: number }) =>
+    childprocs.getBuffer(id, limit)
+  );
+
+  // Deploys
   ipcMain.handle('deploys:list', () => ({ items: readAllDeploys(), errors: [] }));
   ipcMain.handle('deploys:refresh', async () => {
     await refreshDeploys(true);
     return { items: readAllDeploys(), errors: [] };
   });
 
+  // Uptime
+  ipcMain.handle('uptime:all', () => uptime.allSummaries());
+  ipcMain.handle('uptime:project', (_e, { id, hours }: { id: string; hours?: number }) =>
+    uptime.summaryFor(id, hours ?? 24)
+  );
+  ipcMain.handle('uptime:runNow', async () => {
+    await scheduler.runNow('uptime');
+    return uptime.allSummaries();
+  });
+  ipcMain.handle('uptime:errors', async (_e, id: string) => {
+    return screenshots.gatherErrorsForProject(id);
+  });
+
+  // Env manager
+  ipcMain.handle('env:scan', (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return [];
+    return envman.scanProject(project.path);
+  });
+  ipcMain.handle('env:read', (_e, { id, file }: { id: string; file: string }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { file, path: '', exists: false, entries: [] };
+    return envman.readFileDetail(project.path, file);
+  });
+  ipcMain.handle('env:write', (_e, { id, file, entries }: { id: string; file: string; entries: any }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    return envman.writeFileDetail(project.path, file, entries);
+  });
+  ipcMain.handle('env:clone', (_e, args: { sourceId: string; sourceFile: string; targetId: string; targetFile: string; overwrite: boolean }) => {
+    const cfg = loadConfig();
+    const src = cfg.projects.find((p) => p.id === args.sourceId);
+    const tgt = cfg.projects.find((p) => p.id === args.targetId);
+    if (!src || !tgt) return { ok: false, error: 'Source or target not found' };
+    return envman.cloneEnv(src.path, args.sourceFile, tgt.path, args.targetFile, args.overwrite);
+  });
+  ipcMain.handle('env:files', () => envman.listSupportedFiles());
+
+  // Time
+  ipcMain.handle('time:enter', (_e, id: string) => timer.enter(id));
+  ipcMain.handle('time:leave', (_e, id: string) => timer.leave(id));
+  ipcMain.handle('time:touch', (_e, id: string) => timer.touch(id));
+  ipcMain.handle('time:summary', (_e, { id, days }: { id: string | null; days: number }) =>
+    timer.summaryFor(id, days)
+  );
+  ipcMain.handle('time:active', () => timer.getActive());
+
+  // Changelog
+  ipcMain.handle('changelog:generate', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { error: 'Project not found' };
+    return generateChangelog(project.path);
+  });
+  ipcMain.handle('changelog:write', (_e, { id, markdown }: { id: string; markdown: string }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    return writeChangelogToProject(project.path, markdown);
+  });
+
+  // Release
+  ipcMain.handle('release:start', async (_e, { id, opts }: { id: string; opts: any }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { error: 'Project not found' };
+    return performRelease(
+      {
+        projectPath: project.path,
+        bump: opts?.bump ?? 'patch',
+        writeChangelog: !!opts?.writeChangelog,
+        releaseNotes: opts?.releaseNotes ?? '',
+        pushTags: opts?.pushTags !== false,
+        createGithubRelease: opts?.createGithubRelease !== false,
+      },
+      () => mainWindow
+    );
+  });
+
+  // Bundle
+  ipcMain.handle('bundle:history', (_e, id: string) => bundlesize.history(id));
+  ipcMain.handle('bundle:checkNow', (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return null;
+    return bundlesize.recordIfChanged(id, project.path, true);
+  });
+
+  // Deps
+  ipcMain.handle('deps:runNow', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return null;
+    return depcheck.runForProject(id, project.path);
+  });
+  ipcMain.handle('deps:latest', (_e, id: string) => depcheck.latest(id));
+
+  // Heatmap
+  ipcMain.handle('heatmap:build', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return null;
+    return heatmap.build(project.path);
+  });
+
+  // Screenshots
+  ipcMain.handle('screenshots:list', (_e, id: string) => screenshots.list(id));
+  ipcMain.handle('screenshots:captureNow', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project || !project.liveUrl) return { ok: false, error: 'No live URL' };
+    const row = await screenshots.captureForProject(id, project.liveUrl);
+    return row ? { ok: true, row } : { ok: false, error: 'Capture failed' };
+  });
+  ipcMain.handle('screenshots:remove', (_e, shotId: number) => screenshots.remove(shotId));
+  ipcMain.handle('screenshots:removeOlderThan', (_e, { id, days }: { id: string; days: number }) =>
+    screenshots.removeOlderThan(id, days)
+  );
+
+  // Scheduler
+  ipcMain.handle('scheduler:status', () => scheduler.status());
+  ipcMain.handle('scheduler:runNow', async (_e, name: string) => {
+    await scheduler.runNow(name);
+    return { ok: true };
+  });
+
+  // Settings
   ipcMain.handle('settings:get', () => loadConfig().settings);
   ipcMain.handle('settings:update', (_e, patch: Partial<AppConfig['settings']>) => {
     const cfg = updateSettings(patch);
     if (typeof patch.pollIntervalMinutes === 'number') startPolling();
+    if (typeof patch.idleTimeoutMinutes === 'number') timer.setIdleTimeout(patch.idleTimeoutMinutes);
+    if (
+      typeof patch.uptimeIntervalMinutes === 'number' ||
+      typeof patch.uptimeEnabled === 'boolean' ||
+      typeof patch.bundleWatchEnabled === 'boolean' ||
+      typeof patch.depsCheckEnabled === 'boolean' ||
+      typeof patch.screenshotsEnabled === 'boolean' ||
+      typeof patch.screenshotHour === 'number'
+    ) {
+      scheduler.startScheduler(broadcast);
+    }
     if (typeof patch.autoLaunch === 'boolean') {
       try {
         app.setLoginItemSettings({ openAtLogin: patch.autoLaunch });
@@ -354,6 +539,7 @@ function registerIpc() {
     return cfg.settings;
   });
 
+  // App
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('app:configPath', () => configPath());
   ipcMain.handle('app:openLogs', async () => {
@@ -363,11 +549,29 @@ function registerIpc() {
     return dir;
   });
 
+  // Shell
   ipcMain.handle('shell:openExternal', (_e, url: string) => {
     if (!url) return;
     return shell.openExternal(url);
   });
+  ipcMain.handle('shell:openPath', async (_e, p: string) => {
+    if (!p) return { ok: false, error: 'Missing path' };
+    const err = await shell.openPath(p);
+    if (err) return { ok: false, error: err };
+    return { ok: true };
+  });
+  ipcMain.handle('shell:readFileAsDataUrl', (_e, p: string) => {
+    try {
+      const buf = fs.readFileSync(p);
+      const ext = path.extname(p).replace('.', '').toLowerCase();
+      const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : 'image/png';
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    } catch {
+      return null;
+    }
+  });
 
+  // Window
   ipcMain.handle('window:minimize', () => mainWindow?.minimize());
   ipcMain.handle('window:maximizeToggle', () => {
     if (!mainWindow) return;
@@ -388,25 +592,37 @@ if (!gotLock) {
   app.on('second-instance', () => showWindow());
 
   app.whenReady().then(async () => {
-    // Ensure config exists (seeds on first run)
     loadConfig();
     try {
       initCacheDb();
     } catch (err) {
       console.error('[cache] init failed:', err);
     }
+    try {
+      const cfg = loadConfig();
+      timer.setIdleTimeout(cfg.settings.idleTimeoutMinutes ?? 2);
+    } catch {
+      /* ignore */
+    }
     registerIpc();
     createMainWindow();
     setupTray();
-    // Initial deploy refresh + start polling
     void refreshDeploys(false);
     startPolling();
+    try {
+      scheduler.startScheduler(broadcast);
+    } catch (err) {
+      console.error('[scheduler] start failed:', err);
+    }
   });
 }
 
 app.on('before-quit', () => {
   quittingForReal = true;
   stopPolling();
+  scheduler.stopScheduler();
+  timer.stopAll();
+  childprocs.killAll();
   closeCacheDb();
 });
 

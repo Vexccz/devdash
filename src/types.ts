@@ -8,6 +8,9 @@ export interface ProjectConfig {
   liveUrl?: string;
   deployProvider: DeployProvider;
   deployId?: string;
+  sentryDsn?: string;
+  logsFolder?: string;
+  errorThresholdPerDay?: number;
 }
 
 export interface GitInfo {
@@ -32,9 +35,39 @@ export interface GitInfo {
   error?: string;
 }
 
+export type FrameworkId =
+  | 'vite'
+  | 'next'
+  | 'expo'
+  | 'flutter'
+  | 'uvicorn'
+  | 'fastapi'
+  | 'react-native'
+  | 'node'
+  | 'unknown';
+
+export interface FrameworkInfo {
+  id: FrameworkId;
+  label: string;
+  command: string;
+  args: string[];
+  port: number | null;
+  localUrl: string | null;
+  cwd: string;
+}
+
+export interface DevServerStatus {
+  running: boolean;
+  framework: FrameworkInfo | null;
+  startedAt: number | null;
+  exitCode: number | null;
+}
+
 export interface ProjectStatus {
   project: ProjectConfig;
   git: GitInfo;
+  framework: FrameworkInfo;
+  devserver: DevServerStatus;
 }
 
 export type DeployStatus = 'queued' | 'building' | 'ready' | 'error' | 'canceled' | 'unknown';
@@ -64,6 +97,14 @@ export interface AppSettings {
   pollIntervalMinutes: number;
   darkMode: boolean;
   autoLaunch: boolean;
+  uptimeIntervalMinutes: number;
+  uptimeEnabled: boolean;
+  bundleWatchEnabled: boolean;
+  depsCheckEnabled: boolean;
+  screenshotsEnabled: boolean;
+  screenshotHour: number;
+  sentryAuthToken: string;
+  idleTimeoutMinutes: number;
 }
 
 export interface Toast {
@@ -71,6 +112,154 @@ export interface Toast {
   type: 'success' | 'error' | 'info';
   title: string;
   body?: string;
+}
+
+export interface LogLine {
+  ts: number;
+  stream: 'stdout' | 'stderr' | 'system';
+  level: 'info' | 'warn' | 'error';
+  line: string;
+}
+
+export interface UptimeSummary {
+  projectId: string;
+  url: string | null;
+  latestOk: boolean | null;
+  latestStatus: number | null;
+  latestCheckedAt: number | null;
+  uptimePct24h: number;
+  avgLatencyMs: number | null;
+  samples: { checkedAt: number; latencyMs: number; ok: number; status: number }[];
+}
+
+export interface EnvFileSummary {
+  file: string;
+  path: string;
+  exists: boolean;
+  varCount: number;
+  missingKeys: string[];
+}
+
+export interface EnvEntry {
+  key: string;
+  value: string;
+}
+
+export interface EnvFileDetail {
+  file: string;
+  path: string;
+  exists: boolean;
+  entries: EnvEntry[];
+}
+
+export interface TimeSummary {
+  projectId: string;
+  todayMs: number;
+  weekMs: number;
+  days: { day: string; ms: number }[];
+}
+
+export type BumpKind = 'patch' | 'minor' | 'major';
+
+export interface ChangelogCommit {
+  hash: string;
+  shortHash: string;
+  type: string;
+  scope?: string;
+  breaking: boolean;
+  message: string;
+  author: string;
+  date: string;
+}
+
+export interface ChangelogResult {
+  fromTag: string | null;
+  commits: ChangelogCommit[];
+  groups: Record<string, ChangelogCommit[]>;
+  suggestedBump: BumpKind;
+  markdown: string;
+  nextVersion: string | null;
+  currentVersion: string | null;
+}
+
+export interface ReleaseStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'running' | 'done' | 'error' | 'skipped';
+  detail?: string;
+}
+
+export interface ReleaseProgress {
+  steps: ReleaseStep[];
+  currentVersion: string | null;
+  nextVersion: string | null;
+  finished: boolean;
+  releaseUrl?: string;
+}
+
+export interface BundleSizeRow {
+  id: number;
+  projectId: string;
+  sizeBytes: number;
+  fileCount: number;
+  recordedAt: number;
+}
+
+export interface BundleSample extends BundleSizeRow {
+  deltaBytes: number | null;
+  deltaPct: number | null;
+  sevenDayAvg: number | null;
+  growthPct: number | null;
+}
+
+export interface OutdatedPackage {
+  name: string;
+  current: string;
+  wanted: string;
+  latest: string;
+  type: 'major' | 'minor' | 'patch' | 'other';
+}
+
+export interface DepSummary {
+  projectId: string;
+  runAt: number;
+  packages: OutdatedPackage[];
+  majorCount: number;
+  minorCount: number;
+  patchCount: number;
+}
+
+export interface HeatmapDay {
+  date: string;
+  count: number;
+}
+
+export interface HeatmapResult {
+  days: HeatmapDay[];
+  currentStreak: number;
+  longestStreak: number;
+  totalCommits: number;
+}
+
+export interface ScreenshotRow {
+  id: number;
+  projectId: string;
+  filePath: string;
+  url: string;
+  capturedAt: number;
+  width: number | null;
+  height: number | null;
+}
+
+export interface SchedulerJobStatus {
+  name: string;
+  lastRunAt: number | null;
+  lastError: string | null;
+}
+
+export interface ErrorBudget {
+  source: string;
+  days: { day: string; count: number }[];
 }
 
 declare global {
@@ -88,12 +277,78 @@ declare global {
         openInVSCode: (path: string) => Promise<{ ok: boolean; error?: string }>;
         runDev: (id: string) => Promise<{ ok: boolean; error?: string }>;
         pull: (id: string) => Promise<{ ok: boolean; output?: string; error?: string }>;
+        framework: (id: string) => Promise<FrameworkInfo | null>;
+      };
+      devserver: {
+        start: (id: string) => Promise<{ ok: boolean; error?: string; framework?: FrameworkInfo }>;
+        stop: (id: string) => Promise<{ ok: boolean; error?: string }>;
+        status: (id: string) => Promise<DevServerStatus>;
+        statusAll: () => Promise<Record<string, DevServerStatus>>;
+        logs: (id: string, limit?: number) => Promise<LogLine[]>;
+        onLog: (cb: (p: { projectId: string; line: LogLine }) => void) => () => void;
+        onStatus: (cb: (p: { projectId: string; running: boolean; framework?: FrameworkInfo; exitCode?: number | null }) => void) => () => void;
       };
       deploys: {
         list: () => Promise<{ items: DeployItem[]; errors: { projectId: string; error: string }[] }>;
         refresh: () => Promise<{ items: DeployItem[]; errors: { projectId: string; error: string }[] }>;
         onUpdate: (cb: (payload: { items: DeployItem[]; errors: { projectId: string; error: string }[]; manual: boolean }) => void) => () => void;
         onToast: (cb: (payload: { type: 'success' | 'error'; title: string; projectId: string }) => void) => () => void;
+      };
+      uptime: {
+        all: () => Promise<UptimeSummary[]>;
+        project: (id: string, hours?: number) => Promise<UptimeSummary>;
+        runNow: () => Promise<UptimeSummary[]>;
+        errors: (id: string) => Promise<ErrorBudget>;
+      };
+      env: {
+        scan: (id: string) => Promise<EnvFileSummary[]>;
+        read: (id: string, file: string) => Promise<EnvFileDetail>;
+        write: (id: string, file: string, entries: EnvEntry[]) => Promise<{ ok: boolean; error?: string; path?: string }>;
+        clone: (sourceId: string, sourceFile: string, targetId: string, targetFile: string, overwrite?: boolean) =>
+          Promise<{ ok: boolean; error?: string; mergedCount?: number }>;
+        files: () => Promise<string[]>;
+      };
+      time: {
+        enter: (id: string) => Promise<{ projectId: string; startedAt: number }>;
+        leave: (id: string) => Promise<{ stopped: boolean }>;
+        touch: (id: string) => Promise<void>;
+        summary: (id?: string | null, days?: number) => Promise<TimeSummary[]>;
+        active: () => Promise<{ projectId: string; startedAt: number } | null>;
+      };
+      changelog: {
+        generate: (id: string) => Promise<ChangelogResult | { error: string }>;
+        write: (id: string, markdown: string) => Promise<{ ok: boolean; error?: string; path?: string }>;
+      };
+      release: {
+        start: (id: string, opts: {
+          bump: BumpKind;
+          writeChangelog: boolean;
+          releaseNotes: string;
+          pushTags: boolean;
+          createGithubRelease: boolean;
+        }) => Promise<ReleaseProgress | { error: string }>;
+        onProgress: (cb: (payload: ReleaseProgress) => void) => () => void;
+      };
+      bundle: {
+        history: (id: string) => Promise<BundleSizeRow[]>;
+        checkNow: (id: string) => Promise<BundleSample | null>;
+      };
+      deps: {
+        runNow: (id: string) => Promise<DepSummary | null>;
+        latest: (id: string) => Promise<DepSummary | null>;
+      };
+      heatmap: {
+        build: (id: string) => Promise<HeatmapResult | null>;
+      };
+      screenshots: {
+        list: (id: string) => Promise<ScreenshotRow[]>;
+        captureNow: (id: string) => Promise<{ ok: boolean; error?: string; row?: ScreenshotRow }>;
+        remove: (shotId: number) => Promise<boolean>;
+        removeOlderThan: (id: string, days: number) => Promise<number>;
+      };
+      scheduler: {
+        status: () => Promise<SchedulerJobStatus[]>;
+        runNow: (name: string) => Promise<{ ok: boolean }>;
       };
       settings: {
         get: () => Promise<AppSettings>;
@@ -106,6 +361,8 @@ declare global {
       };
       shell: {
         openExternal: (url: string) => Promise<void>;
+        openPath: (p: string) => Promise<{ ok: boolean; error?: string }>;
+        readFileAsDataUrl: (p: string) => Promise<string | null>;
       };
       window: {
         minimize: () => Promise<void>;

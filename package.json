@@ -1,6 +1,6 @@
 {
   "name": "devdash",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DevDash - Windows dashboard for local projects + deploy radar (Vercel/Render).",
   "main": "dist-electron/main.js",
   "author": "Vexccz",
@@ -39,7 +39,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "DevDash-Setup-${version}.${ext}"
@@ -59,12 +61,14 @@
     "axios": "1.7.7",
     "better-sqlite3": "11.3.0",
     "date-fns": "4.1.0",
+    "node-cron": "3.0.3",
     "simple-git": "3.27.0"
   },
   "devDependencies": {
     "@electron/rebuild": "3.6.0",
     "@types/better-sqlite3": "7.6.11",
     "@types/node": "22.7.4",
+    "@types/node-cron": "3.0.11",
     "@types/react": "18.3.11",
     "@types/react-dom": "18.3.0",
     "@vitejs/plugin-react": "4.3.2",

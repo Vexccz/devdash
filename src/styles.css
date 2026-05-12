@@ -43,3 +43,15 @@ body {
   from { transform: translateY(16px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+@layer components {
+  .btn-soft {
+    @apply rounded-md border border-dash-line bg-dash-panel/60 px-2 py-1 text-[11px] text-dash-text hover:border-dash-indigo/60 hover:bg-dash-indigo/10 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply rounded-md bg-dash-indigo px-3 py-1.5 text-xs font-medium text-white hover:bg-dash-indigoBright disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-danger {
+    @apply rounded-md bg-dash-err/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-dash-err;
+  }
+}
