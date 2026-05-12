@@ -108,6 +108,10 @@ export interface AppSettings {
   screenshotHour: number;
   sentryAuthToken: string;
   idleTimeoutMinutes: number;
+  ollamaBaseUrl: string;
+  ollamaDefaultModel: string;
+  ollamaSystemPrompt: string;
+  ollamaTemperature: number;
 }
 
 export interface Toast {
@@ -375,6 +379,33 @@ declare global {
         minimize: () => Promise<void>;
         maximizeToggle: () => Promise<void>;
         close: () => Promise<void>;
+      };
+      ollama: {
+        listModels: () => Promise<{ ok: boolean; models?: Array<{ name: string; size: number; modified_at: string }>; error?: string }>;
+        chat: (args: {
+          streamId: string;
+          chatId: string;
+          model: string;
+          messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+          temperature?: number;
+          systemPrompt?: string;
+        }) => Promise<{ ok: boolean; content?: string; error?: string }>;
+        stop: (streamId: string) => Promise<{ ok: boolean; error?: string }>;
+        onChunk: (cb: (payload: { streamId: string; chunk: string }) => void) => () => void;
+        onDone: (cb: (payload: { streamId: string; content: string }) => void) => () => void;
+        onError: (cb: (payload: { streamId: string; error: string }) => void) => () => void;
+      };
+      chats: {
+        list: () => Promise<Array<{ id: string; title: string; model: string | null; systemPrompt: string | null; createdAt: number; updatedAt: number }>>;
+        create: (args: { id: string; title: string; model: string; systemPrompt: string }) =>
+          Promise<{ id: string; title: string; model: string | null; systemPrompt: string | null; createdAt: number; updatedAt: number } | null>;
+        update: (id: string, patch: { title?: string; model?: string; systemPrompt?: string }) =>
+          Promise<{ id: string; title: string; model: string | null; systemPrompt: string | null; createdAt: number; updatedAt: number } | null>;
+        delete: (id: string) => Promise<{ ok: boolean }>;
+        messages: (chatId: string) =>
+          Promise<Array<{ id: number; chatId: string; role: 'user' | 'assistant' | 'system'; content: string; createdAt: number }>>;
+        addMessage: (args: { chatId: string; role: 'user' | 'assistant' | 'system'; content: string }) =>
+          Promise<{ id: number }>;
       };
     };
   }

@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void;
   projects: ProjectConfig[];
   onOpenProject: (id: string, tab?: 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release') => void;
-  onSwitchTab: (tab: 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'settings') => void;
+  onSwitchTab: (tab: 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'chat' | 'settings') => void;
 }
 
 function fuzzy(query: string, candidate: string): number {

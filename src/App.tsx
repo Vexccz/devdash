@@ -9,10 +9,11 @@ import TimeView from './components/TimeView';
 import DepsView from './components/DepsView';
 import ProjectDetail from './components/ProjectDetail';
 import CommandPalette from './components/CommandPalette';
+import ChatView from './components/ChatView';
 import Toasts from './components/Toasts';
 import type { ProjectConfig } from './types';
 
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'chat' | 'settings';
 type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release';
 
 export default function App() {
@@ -62,6 +63,7 @@ export default function App() {
           {tab === 'uptime' && <UptimeView onOpenProject={(id) => openProject(id, 'overview')} />}
           {tab === 'time' && <TimeView onOpenProject={(id) => openProject(id, 'time')} />}
           {tab === 'deps' && <DepsView onOpenProject={(id) => openProject(id, 'deps')} />}
+          {tab === 'chat' && <ChatView />}
           {tab === 'settings' && <SettingsView />}
         </main>
       </div>

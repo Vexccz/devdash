@@ -37,6 +37,10 @@ export interface AppConfig {
     screenshotHour: number;
     sentryAuthToken: string;
     idleTimeoutMinutes: number;
+    ollamaBaseUrl: string;
+    ollamaDefaultModel: string;
+    ollamaSystemPrompt: string;
+    ollamaTemperature: number;
   };
 }
 
@@ -56,6 +60,10 @@ const DEFAULT_CONFIG: AppConfig = {
     screenshotHour: 9,
     sentryAuthToken: '',
     idleTimeoutMinutes: 2,
+    ollamaBaseUrl: 'http://localhost:11434',
+    ollamaDefaultModel: '',
+    ollamaSystemPrompt: '',
+    ollamaTemperature: 0.7,
   },
 };
 

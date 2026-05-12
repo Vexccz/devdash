@@ -93,6 +93,92 @@ export function initCacheDb(): void {
     );
     CREATE INDEX IF NOT EXISTS idx_errors_project ON errors_daily(projectId, day DESC);
   `);
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chats (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      model TEXT,
+      systemPrompt TEXT,
+      createdAt INTEGER NOT NULL,
+      updatedAt INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_chats_updated ON chats(updatedAt DESC);
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      chatId TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      FOREIGN KEY(chatId) REFERENCES chats(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_chat_messages_chat ON chat_messages(chatId, createdAt ASC);
+  `);
+}
+
+export interface ChatRow {
+  id: string;
+  title: string;
+  model: string | null;
+  systemPrompt: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ChatMessageRow {
+  id: number;
+  chatId: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: number;
+}
+
+export function listChats(): ChatRow[] {
+  return getDb().prepare('SELECT * FROM chats ORDER BY updatedAt DESC').all() as ChatRow[];
+}
+
+export function getChat(id: string): ChatRow | null {
+  return (getDb().prepare('SELECT * FROM chats WHERE id = ?').get(id) as ChatRow | undefined) ?? null;
+}
+
+export function createChat(id: string, title: string, model: string, systemPrompt: string): void {
+  const now = Date.now();
+  getDb()
+    .prepare('INSERT INTO chats (id, title, model, systemPrompt, createdAt, updatedAt) VALUES (?,?,?,?,?,?)')
+    .run(id, title, model || null, systemPrompt || null, now, now);
+}
+
+export function updateChat(id: string, patch: { title?: string; model?: string; systemPrompt?: string }): void {
+  const sets: string[] = [];
+  const vals: any[] = [];
+  if (patch.title !== undefined) { sets.push('title = ?'); vals.push(patch.title); }
+  if (patch.model !== undefined) { sets.push('model = ?'); vals.push(patch.model || null); }
+  if (patch.systemPrompt !== undefined) { sets.push('systemPrompt = ?'); vals.push(patch.systemPrompt || null); }
+  if (sets.length === 0) return;
+  sets.push('updatedAt = ?'); vals.push(Date.now());
+  vals.push(id);
+  getDb().prepare(`UPDATE chats SET ${sets.join(', ')} WHERE id = ?`).run(...vals);
+}
+
+export function deleteChat(id: string): void {
+  getDb().prepare('DELETE FROM chats WHERE id = ?').run(id);
+  getDb().prepare('DELETE FROM chat_messages WHERE chatId = ?').run(id);
+}
+
+export function listMessages(chatId: string): ChatMessageRow[] {
+  return getDb()
+    .prepare('SELECT * FROM chat_messages WHERE chatId = ? ORDER BY createdAt ASC, id ASC')
+    .all(chatId) as ChatMessageRow[];
+}
+
+export function addMessage(chatId: string, role: 'user' | 'assistant' | 'system', content: string): number {
+  const now = Date.now();
+  const res = getDb()
+    .prepare('INSERT INTO chat_messages (chatId, role, content, createdAt) VALUES (?,?,?,?)')
+    .run(chatId, role, content, now);
+  getDb().prepare('UPDATE chats SET updatedAt = ? WHERE id = ?').run(now, chatId);
+  return Number(res.lastInsertRowid);
 }
 
 function getDb(): Database.Database {

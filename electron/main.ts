@@ -31,6 +31,8 @@ import {
   readAllDeploys,
   closeCacheDb,
 } from './cache';
+import * as chatCache from './cache';
+import { listModels as ollamaListModels, streamChat as ollamaStreamChat } from './ollama';
 import * as childprocs from './childprocs';
 import * as envman from './envman';
 import * as timer from './timer';
@@ -718,6 +720,92 @@ function registerIpc() {
     if (!mainWindow) return;
     if (mainWindow.isMaximized()) mainWindow.unmaximize();
     else mainWindow.maximize();
+  });
+
+  // Ollama chat
+  const activeStreams = new Map<string, AbortController>();
+
+  ipcMain.handle('ollama:listModels', async () => {
+    return ollamaListModels();
+  });
+
+  ipcMain.handle('chats:list', () => {
+    return chatCache.listChats();
+  });
+
+  ipcMain.handle('chats:create', (_e, args: { id: string; title: string; model: string; systemPrompt: string }) => {
+    chatCache.createChat(args.id, args.title || 'New chat', args.model, args.systemPrompt);
+    return chatCache.getChat(args.id);
+  });
+
+  ipcMain.handle('chats:update', (_e, args: { id: string; patch: { title?: string; model?: string; systemPrompt?: string } }) => {
+    chatCache.updateChat(args.id, args.patch);
+    return chatCache.getChat(args.id);
+  });
+
+  ipcMain.handle('chats:delete', (_e, id: string) => {
+    chatCache.deleteChat(id);
+    return { ok: true };
+  });
+
+  ipcMain.handle('chats:messages', (_e, chatId: string) => {
+    return chatCache.listMessages(chatId);
+  });
+
+  ipcMain.handle('chats:addMessage', (_e, args: { chatId: string; role: 'user' | 'assistant' | 'system'; content: string }) => {
+    const id = chatCache.addMessage(args.chatId, args.role, args.content);
+    return { id };
+  });
+
+  ipcMain.handle('ollama:chat', async (_e, args: {
+    streamId: string;
+    chatId: string;
+    model: string;
+    messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+    temperature?: number;
+    systemPrompt?: string;
+  }) => {
+    const controller = new AbortController();
+    activeStreams.set(args.streamId, controller);
+
+    return new Promise<{ ok: boolean; content?: string; error?: string }>((resolve) => {
+      let responseText = '';
+      ollamaStreamChat({
+        model: args.model,
+        messages: args.messages,
+        temperature: args.temperature,
+        systemPrompt: args.systemPrompt,
+        signal: controller.signal,
+        onChunk: (chunk) => {
+          responseText += chunk;
+          mainWindow?.webContents.send('ollama:chunk', { streamId: args.streamId, chunk });
+        },
+        onDone: (full) => {
+          activeStreams.delete(args.streamId);
+          const finalText = full || responseText;
+          if (finalText.trim()) {
+            chatCache.addMessage(args.chatId, 'assistant', finalText);
+          }
+          mainWindow?.webContents.send('ollama:done', { streamId: args.streamId, content: finalText });
+          resolve({ ok: true, content: finalText });
+        },
+        onError: (error) => {
+          activeStreams.delete(args.streamId);
+          mainWindow?.webContents.send('ollama:error', { streamId: args.streamId, error });
+          resolve({ ok: false, error });
+        },
+      });
+    });
+  });
+
+  ipcMain.handle('ollama:stop', (_e, streamId: string) => {
+    const ctrl = activeStreams.get(streamId);
+    if (ctrl) {
+      ctrl.abort();
+      activeStreams.delete(streamId);
+      return { ok: true };
+    }
+    return { ok: false, error: 'No active stream' };
   });
   ipcMain.handle('window:close', () => {
     quittingForReal = true;

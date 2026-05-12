@@ -134,6 +134,44 @@ const api = {
     maximizeToggle: () => ipcRenderer.invoke('window:maximizeToggle'),
     close: () => ipcRenderer.invoke('window:close'),
   },
+  ollama: {
+    listModels: () => ipcRenderer.invoke('ollama:listModels'),
+    chat: (args: {
+      streamId: string;
+      chatId: string;
+      model: string;
+      messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+      temperature?: number;
+      systemPrompt?: string;
+    }) => ipcRenderer.invoke('ollama:chat', args),
+    stop: (streamId: string) => ipcRenderer.invoke('ollama:stop', streamId),
+    onChunk: (cb: (payload: { streamId: string; chunk: string }) => void) => {
+      const h = (_: unknown, payload: any) => cb(payload);
+      ipcRenderer.on('ollama:chunk', h);
+      return () => ipcRenderer.removeListener('ollama:chunk', h);
+    },
+    onDone: (cb: (payload: { streamId: string; content: string }) => void) => {
+      const h = (_: unknown, payload: any) => cb(payload);
+      ipcRenderer.on('ollama:done', h);
+      return () => ipcRenderer.removeListener('ollama:done', h);
+    },
+    onError: (cb: (payload: { streamId: string; error: string }) => void) => {
+      const h = (_: unknown, payload: any) => cb(payload);
+      ipcRenderer.on('ollama:error', h);
+      return () => ipcRenderer.removeListener('ollama:error', h);
+    },
+  },
+  chats: {
+    list: () => ipcRenderer.invoke('chats:list'),
+    create: (args: { id: string; title: string; model: string; systemPrompt: string }) =>
+      ipcRenderer.invoke('chats:create', args),
+    update: (id: string, patch: { title?: string; model?: string; systemPrompt?: string }) =>
+      ipcRenderer.invoke('chats:update', { id, patch }),
+    delete: (id: string) => ipcRenderer.invoke('chats:delete', id),
+    messages: (chatId: string) => ipcRenderer.invoke('chats:messages', chatId),
+    addMessage: (args: { chatId: string; role: 'user' | 'assistant' | 'system'; content: string }) =>
+      ipcRenderer.invoke('chats:addMessage', args),
+  },
 };
 
 contextBridge.exposeInMainWorld('devdash', api);

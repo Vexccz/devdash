@@ -1,4 +1,4 @@
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'chat' | 'settings';
 
 interface Props {
   tab: Tab;
@@ -12,6 +12,7 @@ export default function Sidebar({ tab, onChange }: Props) {
     { id: 'uptime', label: 'Uptime', icon: <PulseIcon /> },
     { id: 'time', label: 'Time', icon: <ClockIcon /> },
     { id: 'deps', label: 'Deps', icon: <BoxIcon /> },
+    { id: 'chat', label: 'Chat', icon: <ChatIcon /> },
     { id: 'settings', label: 'Settings', icon: <GearIcon /> },
   ];
 
@@ -98,6 +99,14 @@ function GearIcon() {
     <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
       <circle cx="8" cy="8" r="2.5" />
       <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H6l-3 2.5V12H3a1 1 0 01-1-1V4z" strokeLinejoin="round" />
     </svg>
   );
 }

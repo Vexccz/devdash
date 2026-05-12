@@ -2,6 +2,28 @@
 
 All notable changes to DevDash are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/), dates in `YYYY-MM-DD`.
 
+## [0.4.0] - 2026-05-13
+
+Adds a first-class Ollama chat panel directly in the app. Chat without leaving DevDash.
+
+### Added
+- **Chat tab** — a new sidebar entry next to Deps. Connects to a local Ollama server (default `http://localhost:11434`, configurable in Settings via `ollamaBaseUrl`).
+- **Model picker** — dropdown populated from `GET /api/tags`, with a refresh button.
+- **Streaming responses** — assistant output streams token by token via NDJSON parsing of `POST /api/chat`. A Stop button cancels the active stream.
+- **Chat history** — conversations persist in SQLite (`chats`, `chat_messages` tables). Sidebar shows title, model, and relative updated time. Delete per chat.
+- **Per-chat settings** — temperature slider (0.0–1.5) and system prompt field in the composer row.
+- **Settings fields** — `ollamaBaseUrl`, `ollamaDefaultModel`, `ollamaSystemPrompt`, `ollamaTemperature` added to `AppConfig.settings` with safe defaults.
+- **IPC surface** — new `window.devdash.ollama.{listModels,chat,stop,onChunk,onDone,onError}` and `window.devdash.chats.{list,create,update,delete,messages,addMessage}`.
+
+### Changed
+- Sidebar order now reads: Projects, Deploys, Uptime, Time, Deps, Chat, Settings.
+- Command palette tab union expanded to include `chat`.
+
+### Known issues
+- Assistant responses render as monospaced plain text; markdown rendering and code-block syntax highlighting are planned for a follow-up.
+- If Ollama is not running, the Chat tab displays an `Ollama unreachable` hint but does not currently probe automatically on reconnect — use the refresh button.
+- The deferred v0.4.0 scope (keyboard shortcuts overlay, config export/import, light mode, cron automations, PR status, diff viewer, DB health, Render metrics, Vercel analytics, project detail breadcrumb, Electron 32→42) remains deferred.
+
 ## [0.3.0] - 2026-05-13
 
 Ships the full v0.3.0 scope: critical fixes plus three high-impact feature additions.
