@@ -2,6 +2,33 @@
 
 All notable changes to DevDash are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/), dates in `YYYY-MM-DD`.
 
+## [0.3.0-batch1] - 2026-05-13
+
+Partial v0.3.0 release. Batches 2 and 3 ship the remaining v0.3.0 scope; this batch is the three critical fixes.
+
+### Fixed
+- **Sentry integration** — the hardcoded `sentry` org slug in the error-budget fetch path is gone. DSNs are parsed into `{ key, host, orgId, projectId }`, the org slug is resolved by calling `GET /api/0/organizations/` with the saved auth token, and the resolved `{orgSlug, projectSlug}` are cached (15 min TTL, keyed by orgId + token hash). New `electron/sentry.ts` module; `screenshots.gatherErrorsForProject` now calls it instead of the broken hardcoded URL.
+- **Git progress noise on PowerShell** — `git fetch`/`git pull`/`git push` no longer emit progress lines that PowerShell interprets as error objects. New `electron/gitsafe.ts` wraps `execFile('git', [...args, '--quiet'], { windowsHide: true, env: { GIT_TERMINAL_PROMPT: '0', GIT_PAGER: 'cat', LC_ALL: 'C' } })` and returns a `{ ok, code, stdout, stderr }` shape instead of throwing. `electron/git.ts` (fetch/pull) and `electron/release.ts` (push + push tags) now use the wrapped version. Note: `--progress=false` is not a valid git flag, so the wrapper uses `--quiet` instead.
+
+### Added
+- `ProjectConfig.sentryOrgSlug` and `ProjectConfig.sentryProjectSlug` fields so the resolved slugs can be cached on disk and edited manually for self-hosted Sentry.
+- `AddProjectModal` now has a DSN textarea with live regex validation and a small `orgId=… · projectId=…` preview. Saving a DSN (in edit mode) auto-resolves the org + project slug in the background when a Sentry auth token is configured.
+- New preload API: `window.devdash.sentry.validate(dsn)` and `window.devdash.sentry.resolve(projectId)`.
+
+### Security
+- `npm audit` count dropped from **17 (1 critical, 11 high, 3 moderate, 2 low)** to **15 (0 critical, 10 high, 3 moderate, 2 low)** via non-breaking bumps:
+  - `axios` 1.7.7 → 1.16.0 (fixes NO_PROXY SSRF advisory GHSA-3p68-rc4w-qgx5).
+  - `simple-git` 3.27.0 → 3.36.0 (fixes RCE advisories GHSA-jcxm-m3jx-f287, GHSA-r275-fr43-pm7q, GHSA-hffm-xvc3-vprc — this was the lone critical).
+  - `vite` 5.4.8 → 5.4.21, `postcss` 8.4.47 → 8.5.14 (patch bumps within 5.x/8.x).
+
+### Known issues
+The remaining 15 advisories all require breaking bumps and are deferred to a later batch:
+- `electron` 32.x → 42.x (ASAR integrity bypass, GHSA-vmqv-hx8q-j7mg).
+- `@electron/rebuild` 3.6.0 → 4.x (pulls vulnerable `tar`/`cacache`/`node-gyp`).
+- `vite` 5.x → 8.x (bundled `esbuild` advisory GHSA-67mh-4wv8-2f99 on the dev server).
+
+`npm audit fix --force` was deliberately not run for this batch.
+
 ## [0.2.1] - 2026-05-12
 
 ### Added
