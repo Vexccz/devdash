@@ -172,6 +172,10 @@ const api = {
     addMessage: (args: { chatId: string; role: 'user' | 'assistant' | 'system'; content: string }) =>
       ipcRenderer.invoke('chats:addMessage', args),
   },
+  config: {
+    export: (passphrase: string) => ipcRenderer.invoke('config:export', passphrase),
+    import: (passphrase: string) => ipcRenderer.invoke('config:import', passphrase),
+  },
 };
 
 contextBridge.exposeInMainWorld('devdash', api);

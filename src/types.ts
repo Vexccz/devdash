@@ -409,6 +409,10 @@ declare global {
         addMessage: (args: { chatId: string; role: 'user' | 'assistant' | 'system'; content: string }) =>
           Promise<{ id: number }>;
       };
+      config: {
+        export: (passphrase: string) => Promise<{ ok: boolean; error?: string }>;
+        import: (passphrase: string) => Promise<{ ok: boolean; error?: string }>;
+      };
     };
   }
 }

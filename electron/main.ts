@@ -33,6 +33,7 @@ import {
 } from './cache';
 import * as chatCache from './cache';
 import { listModels as ollamaListModels, streamChat as ollamaStreamChat } from './ollama';
+import { exportConfig, importConfig } from './configbackup';
 import * as childprocs from './childprocs';
 import * as envman from './envman';
 import * as timer from './timer';
@@ -806,6 +807,28 @@ function registerIpc() {
       return { ok: true };
     }
     return { ok: false, error: 'No active stream' };
+  });
+
+  ipcMain.handle('config:export', async (_e, passphrase: string) => {
+    if (!mainWindow) return { ok: false, error: 'No window' };
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export DevDash config',
+      defaultPath: `devdash-config-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return { ok: false, error: 'cancelled' };
+    return exportConfig(result.filePath, passphrase);
+  });
+
+  ipcMain.handle('config:import', async (_e, passphrase: string) => {
+    if (!mainWindow) return { ok: false, error: 'No window' };
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import DevDash config',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return { ok: false, error: 'cancelled' };
+    return importConfig(result.filePaths[0], passphrase, true);
   });
   ipcMain.handle('window:close', () => {
     quittingForReal = true;

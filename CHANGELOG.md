@@ -2,6 +2,22 @@
 
 All notable changes to DevDash are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/), dates in `YYYY-MM-DD`.
 
+## [0.6.0] - 2026-05-13
+
+Adds syntax highlighting and encrypted configuration backup.
+
+### Added
+- **Syntax highlighting in chat** — code fences in assistant messages now render with the `highlight.js` GitHub Dark theme. Supports 190+ languages via the `common` language bundle (JavaScript, TypeScript, Python, Bash, JSON, YAML, Markdown, HTML/CSS, Go, Rust, and more).
+- **Encrypted configuration backup** — a new **Backup & restore** section in Settings lets you export the full `config.json` (projects, API tokens, preferences) to an encrypted file with a passphrase, and re-import on another machine. Encryption uses AES-256-GCM with scrypt key derivation; the same passphrase is required to decrypt.
+- Config file format is `devdash-config-v1` with salt, IV, authentication tag, and ciphertext stored as base64. Files are safe to commit or share as long as the passphrase is strong and kept separate.
+
+### Changed
+- Chat code blocks now render with syntax-aware coloring; plain text code blocks remain unchanged.
+
+### Known issues
+- Importing a config does not refresh the running process; Settings and Project views reload on next app start. A toast reminder prompts this.
+- PR status, scheduled automations, diff viewer, database health, Render metrics, Vercel analytics, and project detail breadcrumb remain deferred.
+
 ## [0.5.1] - 2026-05-13
 
 ### Added

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import hljs from 'highlight.js/lib/common';
+import 'highlight.js/styles/github-dark.css';
 
 marked.setOptions({
   gfm: true,
@@ -37,7 +39,18 @@ export default function MarkdownMessage({ content }: { content: string }) {
       };
     });
 
-    // Attach copy buttons to code blocks
+    // Attach copy buttons to code blocks + syntax highlight
+    ref.current.querySelectorAll('pre code').forEach((codeEl) => {
+      const el = codeEl as HTMLElement;
+      if (el.dataset.highlighted === 'true') return;
+      try {
+        hljs.highlightElement(el);
+        el.dataset.highlighted = 'true';
+      } catch {
+        /* skip broken highlight */
+      }
+    });
+
     ref.current.querySelectorAll('pre').forEach((pre) => {
       if (pre.querySelector('.copy-btn')) return;
       const btn = document.createElement('button');

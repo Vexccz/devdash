@@ -263,6 +263,8 @@ export default function SettingsView() {
         </div>
       </section>
 
+      <ConfigBackupSection />
+
       <section className="card p-4">
         <h2 className="mb-3 text-sm font-semibold text-dash-text">About</h2>
         <div className="flex flex-col gap-2 text-xs">
@@ -287,6 +289,104 @@ export default function SettingsView() {
         </div>
       </section>
     </div>
+  );
+}
+
+function ConfigBackupSection() {
+  const [exportPass, setExportPass] = useState('');
+  const [importPass, setImportPass] = useState('');
+  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const [message, setMessage] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  const doExport = async () => {
+    if (exportPass.length < 6) {
+      setMessage({ type: 'err', text: 'Passphrase must be at least 6 characters' });
+      return;
+    }
+    setBusy('export');
+    const res = await window.devdash.config.export(exportPass);
+    setBusy(null);
+    if (res.ok) {
+      setMessage({ type: 'ok', text: 'Config exported. Keep the passphrase safe.' });
+      setExportPass('');
+    } else if (res.error !== 'cancelled') {
+      setMessage({ type: 'err', text: res.error || 'Export failed' });
+    }
+  };
+
+  const doImport = async () => {
+    if (!importPass) {
+      setMessage({ type: 'err', text: 'Enter the passphrase used during export' });
+      return;
+    }
+    if (!confirm('Importing will replace the current config. Continue?')) return;
+    setBusy('import');
+    const res = await window.devdash.config.import(importPass);
+    setBusy(null);
+    if (res.ok) {
+      setMessage({ type: 'ok', text: 'Config imported. Restart DevDash to fully apply.' });
+      setImportPass('');
+    } else if (res.error !== 'cancelled') {
+      setMessage({ type: 'err', text: res.error || 'Import failed' });
+    }
+  };
+
+  return (
+    <section className="card p-4">
+      <h2 className="mb-1 text-sm font-semibold text-dash-text">Backup & restore</h2>
+      <p className="mb-3 text-[11px] text-dash-mute">
+        Export your projects, tokens, and settings as an encrypted JSON file. Same passphrase is required to import on another machine.
+      </p>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-dash-mute">Export</div>
+          <input
+            type="password"
+            value={exportPass}
+            onChange={(e) => setExportPass(e.target.value)}
+            placeholder="passphrase (min 6 chars)"
+            className="w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+          />
+          <button
+            type="button"
+            onClick={doExport}
+            disabled={busy !== null}
+            className="mt-2 w-full btn-primary"
+          >
+            {busy === 'export' ? 'Exporting...' : 'Export config...'}
+          </button>
+        </div>
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-dash-mute">Import</div>
+          <input
+            type="password"
+            value={importPass}
+            onChange={(e) => setImportPass(e.target.value)}
+            placeholder="passphrase"
+            className="w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+          />
+          <button
+            type="button"
+            onClick={doImport}
+            disabled={busy !== null}
+            className="mt-2 w-full btn-soft"
+          >
+            {busy === 'import' ? 'Importing...' : 'Import config...'}
+          </button>
+        </div>
+      </div>
+      {message && (
+        <div
+          className={`mt-3 rounded-md border px-3 py-2 text-[11px] ${
+            message.type === 'ok'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+              : 'border-red-500/30 bg-red-500/10 text-red-400'
+          }`}
+        >
+          {message.text}
+        </div>
+      )}
+    </section>
   );
 }
 
