@@ -109,6 +109,7 @@ const api = {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     update: (patch: any) => ipcRenderer.invoke('settings:update', patch),
+    testToken: (provider: 'vercel' | 'render') => ipcRenderer.invoke('settings:testToken', provider),
   },
   app: {
     version: () => ipcRenderer.invoke('app:version'),

@@ -7,6 +7,11 @@ export default function SettingsView() {
   const [configPath, setConfigPath] = useState<string>('');
   const [showVercel, setShowVercel] = useState(false);
   const [showRender, setShowRender] = useState(false);
+  const [savedAt, setSavedAt] = useState<number>(0);
+  const [vercelTest, setVercelTest] = useState<{ ok: boolean; message: string } | null>(null);
+  const [renderTest, setRenderTest] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testingVercel, setTestingVercel] = useState(false);
+  const [testingRender, setTestingRender] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -25,6 +30,21 @@ export default function SettingsView() {
     if (!settings) return;
     const next = await window.devdash.settings.update(patch);
     setSettings(next);
+    setSavedAt(Date.now());
+  };
+
+  const testToken = async (provider: 'vercel' | 'render') => {
+    if (provider === 'vercel') {
+      setTestingVercel(true);
+      const result = await window.devdash.settings.testToken('vercel');
+      setVercelTest(result);
+      setTestingVercel(false);
+    } else {
+      setTestingRender(true);
+      const result = await window.devdash.settings.testToken('render');
+      setRenderTest(result);
+      setTestingRender(false);
+    }
   };
 
   if (!settings) {
@@ -33,9 +53,17 @@ export default function SettingsView() {
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto pb-4">
-      <div>
-        <h1 className="text-lg font-semibold text-dash-text">Settings</h1>
-        <p className="text-xs text-dash-mute">Manage tokens, polling, and app preferences.</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-lg font-semibold text-dash-text">Settings</h1>
+          <p className="text-xs text-dash-mute">Changes save automatically as you type.</p>
+        </div>
+        {savedAt > 0 && Date.now() - savedAt < 2500 && (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            Saved
+          </span>
+        )}
       </div>
 
       <section className="card p-4">
@@ -48,6 +76,9 @@ export default function SettingsView() {
             show={showVercel}
             onToggleShow={() => setShowVercel((s) => !s)}
             onChange={(v) => update({ vercelToken: v })}
+            onTest={() => testToken('vercel')}
+            testing={testingVercel}
+            testResult={vercelTest}
           />
           <TokenField
             label="Render API token"
@@ -56,6 +87,9 @@ export default function SettingsView() {
             show={showRender}
             onToggleShow={() => setShowRender((s) => !s)}
             onChange={(v) => update({ renderToken: v })}
+            onTest={() => testToken('render')}
+            testing={testingRender}
+            testResult={renderTest}
           />
         </div>
       </section>
@@ -215,6 +249,9 @@ function TokenField({
   show,
   onToggleShow,
   onChange,
+  onTest,
+  testing,
+  testResult,
 }: {
   label: string;
   hint: string;
@@ -222,6 +259,9 @@ function TokenField({
   show: boolean;
   onToggleShow: () => void;
   onChange: (v: string) => void;
+  onTest?: () => void;
+  testing?: boolean;
+  testResult?: { ok: boolean; message: string } | null;
 }) {
   return (
     <label className="flex flex-col gap-1 text-xs">
@@ -241,8 +281,30 @@ function TokenField({
         >
           {show ? 'Hide' : 'Show'}
         </button>
+        {onTest && (
+          <button
+            type="button"
+            onClick={onTest}
+            disabled={!value || testing}
+            className="rounded-md border border-dash-indigo/40 bg-dash-indigo/10 px-3 text-[11px] font-medium text-dash-indigo hover:bg-dash-indigo/20 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {testing ? 'Testing...' : 'Test'}
+          </button>
+        )}
       </div>
       <span className="text-[10px] text-dash-mute">{hint}</span>
+      {testResult && (
+        <div
+          className={`mt-1 inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] ${
+            testResult.ok
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+              : 'border-red-500/30 bg-red-500/10 text-red-400'
+          }`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${testResult.ok ? 'bg-emerald-400' : 'bg-red-400'}`} />
+          {testResult.message}
+        </div>
+      )}
     </label>
   );
 }

@@ -353,6 +353,7 @@ declare global {
       settings: {
         get: () => Promise<AppSettings>;
         update: (patch: Partial<AppSettings>) => Promise<AppSettings>;
+        testToken: (provider: 'vercel' | 'render') => Promise<{ ok: boolean; message: string }>;
       };
       app: {
         version: () => Promise<string>;

@@ -2,6 +2,15 @@
 
 All notable changes to DevDash are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/), dates in `YYYY-MM-DD`.
 
+## [0.2.1] - 2026-05-12
+
+### Added
+- Settings: "Saved" badge flashes when any field is edited to confirm auto-save worked.
+- Settings: **Test** button next to Vercel and Render token fields. Validates the token against the provider's API and shows "Connected as <username>" on success or the HTTP error on failure.
+
+### Changed
+- Settings header subtitle clarified to "Changes save automatically as you type."
+
 ## [0.2.0] - 2026-05-12
 
 Big release. 13 planned features; status against each is listed below so you know what to trust.

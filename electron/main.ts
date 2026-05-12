@@ -539,6 +539,37 @@ function registerIpc() {
     return cfg.settings;
   });
 
+  ipcMain.handle('settings:testToken', async (_e, provider: 'vercel' | 'render') => {
+    const settings = loadConfig().settings;
+    try {
+      if (provider === 'vercel') {
+        const token = settings.vercelToken?.trim();
+        if (!token) return { ok: false, message: 'No token set' };
+        const res = await fetch('https://api.vercel.com/v2/user', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return { ok: false, message: `HTTP ${res.status}: ${res.statusText}` };
+        const data = (await res.json()) as { user?: { username?: string; email?: string } };
+        const who = data.user?.username || data.user?.email || 'authenticated';
+        return { ok: true, message: `Connected as ${who}` };
+      }
+      if (provider === 'render') {
+        const token = settings.renderToken?.trim();
+        if (!token) return { ok: false, message: 'No token set' };
+        const res = await fetch('https://api.render.com/v1/owners?limit=1', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return { ok: false, message: `HTTP ${res.status}: ${res.statusText}` };
+        const data = (await res.json()) as Array<{ owner?: { name?: string; email?: string } }>;
+        const who = data?.[0]?.owner?.name || data?.[0]?.owner?.email || 'authenticated';
+        return { ok: true, message: `Connected as ${who}` };
+      }
+      return { ok: false, message: 'Unknown provider' };
+    } catch (err: any) {
+      return { ok: false, message: err?.message || 'Network error' };
+    }
+  });
+
   // App
   ipcMain.handle('app:version', () => app.getVersion());
   ipcMain.handle('app:configPath', () => configPath());
