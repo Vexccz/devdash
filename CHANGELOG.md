@@ -2,6 +2,24 @@
 
 All notable changes to DevDash are documented here. Format loosely follows [Keep a Changelog](https://keepachangelog.com/), dates in `YYYY-MM-DD`.
 
+## [0.5.0] - 2026-05-13
+
+Polish release focused on chat UX and theming.
+
+### Added
+- **Markdown rendering in chat** — assistant responses render with full markdown support (headings, lists, links, tables, blockquotes, inline code, code fences). Powered by `marked` 18 with `DOMPurify` sanitization. Code blocks include a Copy button. External links open in the default browser.
+- **Keyboard shortcuts overlay** — press `?` anywhere (outside input fields) to open a modal listing all shortcuts, grouped by category. Press Esc to close.
+- **Light mode** — Settings now exposes a three-way theme selector (Dark, Light, System). The System option tracks the OS `prefers-color-scheme` preference and updates live when the OS theme changes.
+
+### Changed
+- Settings `Appearance & startup` replaces the previous placeholder Dark-mode toggle with the new theme selector.
+- User messages in chat retain plain-text rendering; only assistant and system roles render through the markdown path.
+
+### Known issues
+- Syntax highlighting inside code fences is not included; code blocks render in a monospace font without language-based coloring.
+- Light mode overrides are applied through CSS attribute selectors; a handful of deep panel-tint variations may still appear dark in niche surfaces and will be tuned in a follow-up.
+- Remaining v0.4.0/v0.5.0 backlog (encrypted config export/import, scheduled automations, PR status, diff viewer, database health, Render metrics, Vercel analytics, project detail breadcrumb, Electron major-version upgrade) is still deferred.
+
 ## [0.4.0] - 2026-05-13
 
 Adds a first-class Ollama chat panel directly in the app. Chat without leaving DevDash.

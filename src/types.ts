@@ -112,6 +112,7 @@ export interface AppSettings {
   ollamaDefaultModel: string;
   ollamaSystemPrompt: string;
   ollamaTemperature: number;
+  theme: 'dark' | 'light' | 'system';
 }
 
 export interface Toast {

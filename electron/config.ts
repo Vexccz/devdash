@@ -41,6 +41,7 @@ export interface AppConfig {
     ollamaDefaultModel: string;
     ollamaSystemPrompt: string;
     ollamaTemperature: number;
+    theme: 'dark' | 'light' | 'system';
   };
 }
 
@@ -64,6 +65,7 @@ const DEFAULT_CONFIG: AppConfig = {
     ollamaDefaultModel: '',
     ollamaSystemPrompt: '',
     ollamaTemperature: 0.7,
+    theme: 'dark',
   },
 };
 

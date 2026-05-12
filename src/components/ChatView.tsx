@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import MarkdownMessage from './MarkdownMessage';
 
 interface ChatSummary {
   id: string;
@@ -368,7 +369,7 @@ function MessageBubble({ role, content, streaming }: { role: string; content: st
   return (
     <div className={`mb-3 flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[80%] rounded-lg px-3 py-2 text-xs ${
+        className={`max-w-[80%] rounded-lg px-3 py-2 ${
           isUser
             ? 'bg-dash-indigo/20 text-dash-text'
             : 'bg-dash-bg/60 text-dash-text border border-dash-line'
@@ -378,7 +379,11 @@ function MessageBubble({ role, content, streaming }: { role: string; content: st
           {role}
           {streaming && <span className="ml-1 animate-pulse">●</span>}
         </div>
-        <div className="whitespace-pre-wrap font-mono text-[11px] leading-relaxed">{content}</div>
+        {isUser ? (
+          <div className="whitespace-pre-wrap text-xs leading-relaxed">{content}</div>
+        ) : (
+          <MarkdownMessage content={content} />
+        )}
       </div>
     </div>
   );

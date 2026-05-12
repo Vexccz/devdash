@@ -199,13 +199,29 @@ export default function SettingsView() {
 
       <section className="card p-4">
         <h2 className="mb-3 text-sm font-semibold text-dash-text">Appearance & startup</h2>
-        <div className="flex flex-col gap-2 text-xs">
-          <Toggle
-            label="Dark mode"
-            description="DevDash is dark-only for now; toggle persists for future light theme."
-            value={settings.darkMode}
-            onChange={(v) => update({ darkMode: v })}
-          />
+        <div className="flex flex-col gap-3 text-xs">
+          <div>
+            <div className="mb-1.5 text-[10px] uppercase tracking-wider text-dash-mute">Theme</div>
+            <div className="flex gap-2">
+              {(['dark', 'light', 'system'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={async () => {
+                    await update({ theme: t });
+                    window.dispatchEvent(new Event('devdash:theme-changed'));
+                  }}
+                  className={`rounded-md border px-3 py-1.5 text-[11px] capitalize ${
+                    settings.theme === t
+                      ? 'border-dash-indigo/60 bg-dash-indigo/20 text-dash-indigoBright'
+                      : 'border-dash-line bg-dash-panel/60 text-dash-text hover:border-dash-indigo/40'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div className="mt-1 text-[10px] text-dash-mute">System follows your OS color scheme.</div>
+          </div>
           <Toggle
             label="Launch on Windows startup"
             description="Adds DevDash to login items."

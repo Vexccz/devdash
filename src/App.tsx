@@ -10,6 +10,7 @@ import DepsView from './components/DepsView';
 import ProjectDetail from './components/ProjectDetail';
 import CommandPalette from './components/CommandPalette';
 import ChatView from './components/ChatView';
+import ShortcutsOverlay from './components/ShortcutsOverlay';
 import Toasts from './components/Toasts';
 import type { ProjectConfig } from './types';
 
@@ -21,6 +22,7 @@ export default function App() {
   const [projects, setProjects] = useState<ProjectConfig[]>([]);
   const [detail, setDetail] = useState<{ project: ProjectConfig; initialTab?: DetailTab } | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const loadProjects = async () => {
     setProjects(await window.devdash.projects.list());
@@ -30,16 +32,49 @@ export default function App() {
     void loadProjects();
   }, []);
 
+  // Apply theme from settings
+  useEffect(() => {
+    const applyTheme = async () => {
+      const s = await window.devdash.settings.get();
+      const pref = s.theme || 'dark';
+      let effective: 'dark' | 'light';
+      if (pref === 'system') {
+        effective = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      } else {
+        effective = pref as 'dark' | 'light';
+      }
+      document.documentElement.setAttribute('data-theme', effective);
+    };
+    void applyTheme();
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const listener = () => void applyTheme();
+    mq.addEventListener('change', listener);
+    window.addEventListener('devdash:theme-changed', listener);
+    return () => {
+      mq.removeEventListener('change', listener);
+      window.removeEventListener('devdash:theme-changed', listener);
+    };
+  }, []);
+
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPaletteOpen((p) => !p);
       }
+      if (e.key === '?' && !paletteOpen) {
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName?.toLowerCase();
+        const inInput = tag === 'input' || tag === 'textarea' || target?.isContentEditable;
+        if (!inInput) {
+          e.preventDefault();
+          setShortcutsOpen((p) => !p);
+        }
+      }
     };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, []);
+  }, [paletteOpen]);
 
   const openProject = async (id: string, detailTab: DetailTab = 'overview') => {
     const list = await window.devdash.projects.list();
@@ -86,6 +121,7 @@ export default function App() {
         />
       )}
       <Toasts />
+      <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }
