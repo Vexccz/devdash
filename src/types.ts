@@ -266,6 +266,27 @@ export interface SafeUpdateResult {
   steps: string[];
 }
 
+export interface EnvSyncCompareItem {
+  key: string;
+  localValue: string | null;
+  remoteValue: string | null;
+  status: 'only-local' | 'only-remote' | 'match' | 'differ';
+}
+
+export interface EnvSyncCompareResult {
+  ok: boolean;
+  provider: 'vercel' | 'render' | 'none';
+  items: EnvSyncCompareItem[];
+  error?: string;
+}
+
+export interface EnvSyncPushResult {
+  ok: boolean;
+  pushed: string[];
+  failed: Array<{ key: string; error: string }>;
+  error?: string;
+}
+
 export interface HeatmapDay {
   date: string;
   count: number;
@@ -465,6 +486,12 @@ declare global {
         clone: (sourceId: string, sourceFile: string, targetId: string, targetFile: string, overwrite?: boolean) =>
           Promise<{ ok: boolean; error?: string; mergedCount?: number }>;
         files: () => Promise<string[]>;
+        syncCompare: (id: string) => Promise<EnvSyncCompareResult>;
+        syncPush: (id: string, keys: string[]) => Promise<EnvSyncPushResult>;
+      };
+      backup: {
+        export: (opts?: { includeCache?: boolean }) => Promise<{ ok: boolean; path?: string; bytes?: number; error?: string }>;
+        import: (opts?: { restoreCache?: boolean }) => Promise<{ ok: boolean; projectsRestored?: number; hadCache?: boolean; error?: string }>;
       };
       time: {
         enter: (id: string) => Promise<{ projectId: string; startedAt: number }>;

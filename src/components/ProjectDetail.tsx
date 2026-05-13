@@ -583,6 +583,7 @@ function EnvTab({ project, allProjects }: { project: ProjectConfig; allProjects:
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [cloneSource, setCloneSource] = useState<string>('');
   const [cloneSourceFile, setCloneSourceFile] = useState<string>('.env');
+  const [showSync, setShowSync] = useState(false);
 
   const reload = async () => {
     setFiles(await window.devdash.env.scan(project.id));
@@ -661,6 +662,15 @@ function EnvTab({ project, allProjects }: { project: ProjectConfig; allProjects:
           <button className="btn-soft" onClick={clone} disabled={!cloneSource}>
             Copy
           </button>
+          {(project.deployProvider === 'vercel' || project.deployProvider === 'render') && (
+            <button
+              className="btn-soft"
+              onClick={() => setShowSync(true)}
+              title={`Compare local env vs ${project.deployProvider} and push missing keys`}
+            >
+              ↕ Sync {project.deployProvider}
+            </button>
+          )}
           <button className="btn-primary" onClick={save}>
             Save
           </button>
@@ -729,6 +739,196 @@ function EnvTab({ project, allProjects }: { project: ProjectConfig; allProjects:
         >
           + Add row
         </button>
+      </div>
+      {showSync && (
+        <EnvSyncModal project={project} onClose={() => setShowSync(false)} />
+      )}
+    </div>
+  );
+}
+
+function EnvSyncModal({ project, onClose }: { project: ProjectConfig; onClose: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [items, setItems] = useState<Array<{ key: string; localValue: string | null; remoteValue: string | null; status: 'only-local' | 'only-remote' | 'match' | 'differ' }>>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [pushing, setPushing] = useState(false);
+  const [result, setResult] = useState<{ pushed: string[]; failed: Array<{ key: string; error: string }>; error?: string } | null>(null);
+  const [reveal, setReveal] = useState<Record<string, boolean>>({});
+
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    const res = await window.devdash.env.syncCompare(project.id);
+    setLoading(false);
+    if (!res.ok) {
+      setError(res.error || 'Compare failed');
+      return;
+    }
+    setItems(res.items);
+    const preselect: Record<string, boolean> = {};
+    for (const it of res.items) {
+      if (it.status === 'only-local' || it.status === 'differ') preselect[it.key] = true;
+    }
+    setSelected(preselect);
+  };
+
+  useEffect(() => {
+    void load();
+  }, [project.id]);
+
+  const selectedKeys = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
+
+  const doPush = async () => {
+    if (selectedKeys.length === 0) return;
+    if (!confirm(`Push ${selectedKeys.length} key(s) to ${project.deployProvider}?`)) return;
+    setPushing(true);
+    const res = await window.devdash.env.syncPush(project.id, selectedKeys);
+    setPushing(false);
+    setResult({ pushed: res.pushed, failed: res.failed, error: res.error });
+    void load();
+  };
+
+  const truncate = (s: string | null) => {
+    if (s === null) return <span className="italic text-dash-mute">—</span>;
+    if (s.length > 40) return <span>{s.slice(0, 40)}…</span>;
+    return <span>{s}</span>;
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-3xl rounded-lg border border-dash-line bg-dash-panel shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-dash-line px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-dash-text">Env sync · {project.name}</h2>
+            <p className="text-[10px] text-dash-mute">
+              Local {`(.env.production || .env || .env.example)`} vs {project.deployProvider}
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded p-1 text-dash-mute hover:text-dash-text">×</button>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto p-4 text-xs">
+          {loading && <div className="py-8 text-center text-dash-mute">Comparing…</div>}
+          {error && !loading && (
+            <div className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-red-400">{error}</div>
+          )}
+          {!loading && !error && items.length === 0 && (
+            <div className="py-8 text-center text-dash-mute">No env vars found locally or remotely.</div>
+          )}
+          {!loading && !error && items.length > 0 && (
+            <table className="w-full text-[11px]">
+              <thead className="text-dash-mute">
+                <tr className="border-b border-dash-line/60">
+                  <th className="px-2 py-1 text-left font-normal">
+                    <input
+                      type="checkbox"
+                      checked={selectedKeys.length > 0 && selectedKeys.length === items.filter((i) => i.status !== 'only-remote' && i.status !== 'match').length}
+                      onChange={(e) => {
+                        const next: Record<string, boolean> = {};
+                        if (e.target.checked) {
+                          for (const it of items) if (it.status === 'only-local' || it.status === 'differ') next[it.key] = true;
+                        }
+                        setSelected(next);
+                      }}
+                    />
+                  </th>
+                  <th className="px-2 py-1 text-left font-normal">Key</th>
+                  <th className="px-2 py-1 text-left font-normal">Local</th>
+                  <th className="px-2 py-1 text-left font-normal">Remote</th>
+                  <th className="px-2 py-1 text-left font-normal">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it) => {
+                  const canPush = it.status === 'only-local' || it.status === 'differ';
+                  const isRevealed = reveal[it.key];
+                  const color = {
+                    'only-local': 'bg-dash-warn/20 text-dash-warn',
+                    differ: 'bg-dash-err/20 text-dash-err',
+                    'only-remote': 'bg-dash-indigo/20 text-dash-indigoBright',
+                    match: 'bg-dash-ok/20 text-dash-ok',
+                  }[it.status];
+                  return (
+                    <tr key={it.key} className="border-b border-dash-line/30 last:border-0">
+                      <td className="px-2 py-1">
+                        <input
+                          type="checkbox"
+                          disabled={!canPush}
+                          checked={!!selected[it.key]}
+                          onChange={(e) => setSelected((cur) => ({ ...cur, [it.key]: e.target.checked }))}
+                        />
+                      </td>
+                      <td className="px-2 py-1 font-mono text-dash-indigoBright">{it.key}</td>
+                      <td className="px-2 py-1 font-mono text-dash-text">
+                        {it.localValue === null ? (
+                          <span className="italic text-dash-mute">—</span>
+                        ) : isRevealed ? (
+                          truncate(it.localValue)
+                        ) : (
+                          <span className="text-dash-mute">••••••</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1 font-mono text-dash-text">
+                        {it.remoteValue === null ? (
+                          <span className="italic text-dash-mute">—</span>
+                        ) : isRevealed ? (
+                          truncate(it.remoteValue)
+                        ) : (
+                          <span className="text-dash-mute">••••••</span>
+                        )}
+                      </td>
+                      <td className="px-2 py-1">
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider ${color}`}>{it.status}</span>
+                        <button
+                          className="ml-2 text-[10px] text-dash-mute hover:text-dash-text"
+                          onClick={() => setReveal((cur) => ({ ...cur, [it.key]: !cur[it.key] }))}
+                        >
+                          {isRevealed ? 'Hide' : 'Reveal'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+          {result && (
+            <div className="mt-3 rounded-md border border-dash-line/60 bg-dash-bg/40 p-3 text-[11px]">
+              <div className="font-semibold text-dash-text">
+                {result.failed.length === 0 && !result.error ? '✅ Pushed' : '⚠ Partial'}
+              </div>
+              <div className="mt-1 text-dash-mute">Pushed: {result.pushed.length ? result.pushed.join(', ') : 'none'}</div>
+              {result.failed.length > 0 && (
+                <div className="mt-1 text-red-400">
+                  Failed:
+                  <ul className="ml-4 list-disc">
+                    {result.failed.map((f) => (
+                      <li key={f.key}>{f.key}: {f.error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {result.error && <div className="mt-1 text-red-400">{result.error}</div>}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between border-t border-dash-line px-4 py-3">
+          <div className="text-[11px] text-dash-mute">
+            {selectedKeys.length} selected
+          </div>
+          <div className="flex gap-2">
+            <button className="btn-soft" onClick={onClose}>Close</button>
+            <button className="btn-soft" onClick={load} disabled={loading}>Refresh</button>
+            <button
+              className="btn-primary disabled:opacity-40"
+              disabled={pushing || selectedKeys.length === 0}
+              onClick={doPush}
+              title="Push selected local values to the provider"
+            >
+              {pushing ? 'Pushing…' : `Push to ${project.deployProvider}`}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

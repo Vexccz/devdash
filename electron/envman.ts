@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import axios from 'axios';
+import type { ProjectConfig } from './config';
 
 const ENV_FILENAMES = ['.env', '.env.local', '.env.production', '.env.development', '.env.example'];
 
@@ -156,4 +158,246 @@ export function cloneEnv(
 
 export function listSupportedFiles(): string[] {
   return [...ENV_FILENAMES];
+}
+
+export interface SyncCompareItem {
+  key: string;
+  localValue: string | null;
+  remoteValue: string | null;
+  status: 'only-local' | 'only-remote' | 'match' | 'differ';
+}
+
+export interface SyncCompareResult {
+  ok: boolean;
+  provider: 'vercel' | 'render' | 'none';
+  items: SyncCompareItem[];
+  error?: string;
+}
+
+export interface SyncPushResult {
+  ok: boolean;
+  pushed: string[];
+  failed: Array<{ key: string; error: string }>;
+  error?: string;
+}
+
+async function fetchVercelEnv(token: string, projectId: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const url = `https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env?decrypt=true`;
+  const res = await axios.get(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: 15000,
+  });
+  const envs = (res.data?.envs ?? []) as any[];
+  for (const e of envs) {
+    const target: string[] = Array.isArray(e.target) ? e.target : [];
+    if (target.includes('production') || target.length === 0) {
+      out.set(String(e.key), typeof e.value === 'string' ? e.value : '');
+    }
+  }
+  return out;
+}
+
+async function fetchRenderEnv(token: string, serviceId: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const url = `https://api.render.com/v1/services/${encodeURIComponent(serviceId)}/env-vars`;
+  const res = await axios.get(url, {
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    timeout: 15000,
+  });
+  const items = (res.data ?? []) as any[];
+  for (const entry of items) {
+    const v = entry.envVar ?? entry;
+    if (v?.key) out.set(String(v.key), String(v.value ?? ''));
+  }
+  return out;
+}
+
+export async function compareWithProvider(
+  project: ProjectConfig,
+  tokens: { vercelToken: string; renderToken: string }
+): Promise<SyncCompareResult> {
+  if (project.deployProvider !== 'vercel' && project.deployProvider !== 'render') {
+    return { ok: false, provider: 'none', items: [], error: 'Project has no deploy provider configured.' };
+  }
+  if (!project.deployId) {
+    return { ok: false, provider: project.deployProvider, items: [], error: 'No deployId on project.' };
+  }
+  const token = project.deployProvider === 'vercel' ? tokens.vercelToken : tokens.renderToken;
+  if (!token) {
+    return { ok: false, provider: project.deployProvider, items: [], error: `${project.deployProvider} token missing in Settings.` };
+  }
+
+  // Prefer .env.production, fall back to .env, fall back to .env.example
+  const candidates = ['.env.production', '.env', '.env.example'];
+  let local: EnvEntry[] = [];
+  for (const f of candidates) {
+    const p = path.join(project.path, f);
+    if (fs.existsSync(p)) {
+      try {
+        local = parseEnv(fs.readFileSync(p, 'utf-8'));
+        break;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  const localMap = new Map<string, string>();
+  for (const e of local) localMap.set(e.key, e.value);
+
+  let remote: Map<string, string>;
+  try {
+    remote =
+      project.deployProvider === 'vercel'
+        ? await fetchVercelEnv(token, project.deployId)
+        : await fetchRenderEnv(token, project.deployId);
+  } catch (err) {
+    return {
+      ok: false,
+      provider: project.deployProvider,
+      items: [],
+      error: `Fetch failed: ${(err as Error).message}`,
+    };
+  }
+
+  const keys = new Set<string>([...localMap.keys(), ...remote.keys()]);
+  const items: SyncCompareItem[] = [];
+  for (const k of keys) {
+    const lv = localMap.has(k) ? localMap.get(k)! : null;
+    const rv = remote.has(k) ? remote.get(k)! : null;
+    let status: SyncCompareItem['status'];
+    if (lv === null) status = 'only-remote';
+    else if (rv === null) status = 'only-local';
+    else if (lv === rv) status = 'match';
+    else status = 'differ';
+    items.push({ key: k, localValue: lv, remoteValue: rv, status });
+  }
+  items.sort((a, b) => {
+    const order = { 'only-local': 0, differ: 1, 'only-remote': 2, match: 3 };
+    return order[a.status] - order[b.status] || a.key.localeCompare(b.key);
+  });
+  return { ok: true, provider: project.deployProvider, items };
+}
+
+async function pushVercelKey(token: string, projectId: string, key: string, value: string, existingId?: string) {
+  if (existingId) {
+    // Update (decrypt=true required to fetch id earlier). Vercel expects PATCH with body.
+    await axios.patch(
+      `https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env/${encodeURIComponent(existingId)}`,
+      { value, target: ['production', 'preview', 'development'], type: 'encrypted' },
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
+    );
+    return;
+  }
+  await axios.post(
+    `https://api.vercel.com/v10/projects/${encodeURIComponent(projectId)}/env?upsert=true`,
+    { key, value, target: ['production', 'preview', 'development'], type: 'encrypted' },
+    { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
+  );
+}
+
+async function getVercelEnvIndex(token: string, projectId: string): Promise<Map<string, string>> {
+  const url = `https://api.vercel.com/v9/projects/${encodeURIComponent(projectId)}/env`;
+  const res = await axios.get(url, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: 15000,
+  });
+  const map = new Map<string, string>();
+  const envs = (res.data?.envs ?? []) as any[];
+  for (const e of envs) {
+    if (e?.key && e?.id) map.set(String(e.key), String(e.id));
+  }
+  return map;
+}
+
+async function pushRenderEnv(token: string, serviceId: string, allPairs: Array<{ key: string; value: string }>) {
+  // Render API replaces entire env-vars set via PUT.
+  await axios.put(
+    `https://api.render.com/v1/services/${encodeURIComponent(serviceId)}/env-vars`,
+    allPairs.map((p) => ({ key: p.key, value: p.value })),
+    { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, timeout: 20000 }
+  );
+}
+
+export async function pushToProvider(
+  project: ProjectConfig,
+  tokens: { vercelToken: string; renderToken: string },
+  keys: string[]
+): Promise<SyncPushResult> {
+  if (project.deployProvider !== 'vercel' && project.deployProvider !== 'render') {
+    return { ok: false, pushed: [], failed: [], error: 'Project has no deploy provider configured.' };
+  }
+  if (!project.deployId) {
+    return { ok: false, pushed: [], failed: [], error: 'No deployId on project.' };
+  }
+  const token = project.deployProvider === 'vercel' ? tokens.vercelToken : tokens.renderToken;
+  if (!token) {
+    return { ok: false, pushed: [], failed: [], error: `${project.deployProvider} token missing in Settings.` };
+  }
+  // Read local values (prefer .env.production, then .env)
+  const candidates = ['.env.production', '.env'];
+  let local: EnvEntry[] = [];
+  for (const f of candidates) {
+    const p = path.join(project.path, f);
+    if (fs.existsSync(p)) {
+      try {
+        local = parseEnv(fs.readFileSync(p, 'utf-8'));
+        break;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  const localMap = new Map<string, string>();
+  for (const e of local) localMap.set(e.key, e.value);
+
+  const pushed: string[] = [];
+  const failed: Array<{ key: string; error: string }> = [];
+
+  if (project.deployProvider === 'vercel') {
+    let index: Map<string, string> = new Map();
+    try {
+      index = await getVercelEnvIndex(token, project.deployId);
+    } catch {
+      /* ignore, will create new */
+    }
+    for (const k of keys) {
+      const v = localMap.get(k);
+      if (v === undefined) {
+        failed.push({ key: k, error: 'Not in local .env' });
+        continue;
+      }
+      try {
+        await pushVercelKey(token, project.deployId, k, v, index.get(k));
+        pushed.push(k);
+      } catch (err) {
+        failed.push({ key: k, error: (err as Error).message });
+      }
+    }
+    return { ok: failed.length === 0, pushed, failed };
+  }
+
+  // Render: PUT-replace model. Merge remote + local-selected, then PUT.
+  try {
+    const remote = await fetchRenderEnv(token, project.deployId);
+    for (const k of keys) {
+      const v = localMap.get(k);
+      if (v === undefined) {
+        failed.push({ key: k, error: 'Not in local .env' });
+        continue;
+      }
+      remote.set(k, v);
+      pushed.push(k);
+    }
+    const pairs = Array.from(remote.entries()).map(([key, value]) => ({ key, value }));
+    await pushRenderEnv(token, project.deployId, pairs);
+    return { ok: failed.length === 0, pushed, failed };
+  } catch (err) {
+    return {
+      ok: false,
+      pushed,
+      failed,
+      error: `Render push failed: ${(err as Error).message}`,
+    };
+  }
 }

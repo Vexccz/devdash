@@ -34,6 +34,7 @@ import {
 import * as chatCache from './cache';
 import { listModels as ollamaListModels, streamChat as ollamaStreamChat } from './ollama';
 import { exportConfig, importConfig } from './configbackup';
+import * as backup from './backup';
 import * as childprocs from './childprocs';
 import * as envman from './envman';
 import * as timer from './timer';
@@ -620,6 +621,49 @@ function registerIpc() {
     return envman.cloneEnv(src.path, args.sourceFile, tgt.path, args.targetFile, args.overwrite);
   });
   ipcMain.handle('env:files', () => envman.listSupportedFiles());
+
+  ipcMain.handle('env:syncCompare', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, provider: 'none', items: [], error: 'Project not found' };
+    return envman.compareWithProvider(project, {
+      vercelToken: cfg.settings.vercelToken,
+      renderToken: cfg.settings.renderToken,
+    });
+  });
+
+  ipcMain.handle('env:syncPush', async (_e, args: { id: string; keys: string[] }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === args.id);
+    if (!project) return { ok: false, pushed: [], failed: [], error: 'Project not found' };
+    return envman.pushToProvider(project, {
+      vercelToken: cfg.settings.vercelToken,
+      renderToken: cfg.settings.renderToken,
+    }, args.keys || []);
+  });
+
+  // Backup / restore
+  ipcMain.handle('backup:export', async (_e, opts: { includeCache?: boolean } = {}) => {
+    const win = BrowserWindow.getFocusedWindow();
+    const res = await dialog.showSaveDialog(win!, {
+      title: 'Export DevDash backup',
+      defaultPath: path.join(backup.defaultBackupDir(), backup.defaultBackupName()),
+      filters: [{ name: 'DevDash Backup', extensions: ['json'] }],
+    });
+    if (res.canceled || !res.filePath) return { ok: false, error: 'Cancelled' };
+    return backup.createBackup(res.filePath, opts.includeCache !== false);
+  });
+
+  ipcMain.handle('backup:import', async (_e, opts: { restoreCache?: boolean } = {}) => {
+    const win = BrowserWindow.getFocusedWindow();
+    const res = await dialog.showOpenDialog(win!, {
+      title: 'Restore DevDash backup',
+      filters: [{ name: 'DevDash Backup', extensions: ['json'] }],
+      properties: ['openFile'],
+    });
+    if (res.canceled || !res.filePaths.length) return { ok: false, error: 'Cancelled' };
+    return backup.restoreBackup(res.filePaths[0], { restoreCache: opts.restoreCache === true });
+  });
 
   // Time
   ipcMain.handle('time:enter', (_e, id: string) => timer.enter(id));

@@ -264,6 +264,7 @@ export default function SettingsView() {
       </section>
 
       <ConfigBackupSection />
+      <QuickBackupSection />
 
       <section className="card p-4">
         <h2 className="mb-3 text-sm font-semibold text-dash-text">About</h2>
@@ -295,6 +296,84 @@ export default function SettingsView() {
         </div>
       </section>
     </div>
+  );
+}
+
+function QuickBackupSection() {
+  const [includeCache, setIncludeCache] = useState(true);
+  const [restoreCache, setRestoreCache] = useState(false);
+  const [busy, setBusy] = useState<'export' | 'import' | null>(null);
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+
+  const doExport = async () => {
+    setBusy('export');
+    setMsg(null);
+    const res = await window.devdash.backup.export({ includeCache });
+    setBusy(null);
+    if (res.ok) {
+      const sizeKb = res.bytes ? Math.round(res.bytes / 1024) : 0;
+      setMsg({ type: 'ok', text: `Saved to ${res.path} (${sizeKb} KB)` });
+    } else if (res.error !== 'Cancelled') {
+      setMsg({ type: 'err', text: res.error || 'Export failed' });
+    }
+  };
+
+  const doImport = async () => {
+    if (!confirm('Importing will replace the current config. Backups of current config + cache are saved next to the originals. Continue?')) return;
+    setBusy('import');
+    setMsg(null);
+    const res = await window.devdash.backup.import({ restoreCache });
+    setBusy(null);
+    if (res.ok) {
+      setMsg({
+        type: 'ok',
+        text: `Imported ${res.projectsRestored ?? 0} project(s)${res.hadCache ? ' + cache' : ''}. Restart DevDash to fully apply.`,
+      });
+    } else if (res.error !== 'Cancelled') {
+      setMsg({ type: 'err', text: res.error || 'Import failed' });
+    }
+  };
+
+  return (
+    <section className="card p-4">
+      <h2 className="mb-1 text-sm font-semibold text-dash-text">Quick backup (plain JSON)</h2>
+      <p className="mb-3 text-[11px] text-dash-mute">
+        One-click export of all DevDash data (projects, tokens, settings, optional cache). No passphrase. Use this for moving to a new PC quickly. For sharing or untrusted storage, prefer the encrypted backup above.
+      </p>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-dash-mute">Export</div>
+          <label className="mb-2 flex items-center gap-2 text-[11px] text-dash-text">
+            <input type="checkbox" checked={includeCache} onChange={(e) => setIncludeCache(e.target.checked)} />
+            Include cache database (uptime, deploys, deps history)
+          </label>
+          <button type="button" onClick={doExport} disabled={busy !== null} className="w-full btn-primary">
+            {busy === 'export' ? 'Exporting...' : 'Export backup...'}
+          </button>
+        </div>
+        <div>
+          <div className="mb-1 text-[10px] uppercase tracking-wider text-dash-mute">Restore</div>
+          <label className="mb-2 flex items-center gap-2 text-[11px] text-dash-text">
+            <input type="checkbox" checked={restoreCache} onChange={(e) => setRestoreCache(e.target.checked)} />
+            Restore cache too (overwrites local cache)
+          </label>
+          <button type="button" onClick={doImport} disabled={busy !== null} className="w-full btn-soft">
+            {busy === 'import' ? 'Restoring...' : 'Restore backup...'}
+          </button>
+        </div>
+      </div>
+      {msg && (
+        <div
+          className={`mt-3 rounded-md px-3 py-2 text-[11px] ${
+            msg.type === 'ok'
+              ? 'border border-dash-ok/30 bg-dash-ok/10 text-dash-ok'
+              : 'border border-red-500/30 bg-red-500/10 text-red-400'
+          }`}
+        >
+          {msg.text}
+        </div>
+      )}
+    </section>
   );
 }
 

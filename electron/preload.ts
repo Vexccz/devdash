@@ -72,6 +72,12 @@ const api = {
     clone: (sourceId: string, sourceFile: string, targetId: string, targetFile: string, overwrite?: boolean) =>
       ipcRenderer.invoke('env:clone', { sourceId, sourceFile, targetId, targetFile, overwrite: !!overwrite }),
     files: () => ipcRenderer.invoke('env:files'),
+    syncCompare: (id: string) => ipcRenderer.invoke('env:syncCompare', id),
+    syncPush: (id: string, keys: string[]) => ipcRenderer.invoke('env:syncPush', { id, keys }),
+  },
+  backup: {
+    export: (opts?: { includeCache?: boolean }) => ipcRenderer.invoke('backup:export', opts ?? {}),
+    import: (opts?: { restoreCache?: boolean }) => ipcRenderer.invoke('backup:import', opts ?? {}),
   },
   time: {
     enter: (id: string) => ipcRenderer.invoke('time:enter', id),
