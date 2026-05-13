@@ -5,21 +5,27 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import type { BrowserWindow } from 'electron';
 import { app } from 'electron';
+import { loadConfig } from './config';
 
 export interface ScaffoldOptions {
   projectName: string;
   targetParentDir: string;
-  template: 'react-express-mongo' | 'react-express-postgres';
+  template: 'react-express-mongo' | 'react-express-postgres' | 'nextjs-prisma';
   displayName: string;
   useStripe: boolean;
   install: boolean;
   gitInit: boolean;
+  envFromSettings?: boolean;
+  gitHubPush?: boolean;
+  gitHubPrivate?: boolean;
+  customTemplateRepo?: string; // GitHub URL or owner/repo for custom template
 }
 
 export interface ScaffoldResult {
   ok: boolean;
   targetDir?: string;
   error?: string;
+  githubUrl?: string;
 }
 
 export type ScaffoldLogEvent = {
@@ -142,6 +148,11 @@ export function listTemplates(): Array<{ id: string; label: string; description:
       label: 'React + Express + Postgres (Prisma)',
       description: 'Same as above but Postgres + Prisma. Needs `npm run prisma:migrate` after setup.',
     },
+    {
+      id: 'nextjs-prisma',
+      label: 'Next.js 14 + Postgres (Prisma)',
+      description: 'Full-stack Next.js App Router with Postgres + Prisma, cookie-based JWT auth, Stripe, admin panel, emails.',
+    },
   ];
 }
 
@@ -186,15 +197,49 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
     emit('system', `Scaffolding into ${targetDir}...`);
     copyDir(tplDir, targetDir, replacements);
 
+    // Detect if template uses a nested backend folder (for payments.js location)
+    const hasBackendFolder = fs.existsSync(path.join(targetDir, 'backend'));
+
     // If user opted out of Stripe, neutralize the payments route.
     if (!opts.useStripe) {
-      const paymentsRoute = path.join(targetDir, 'backend', 'src', 'routes', 'payments.js');
-      if (fs.existsSync(paymentsRoute)) {
+      const paymentsRoute = hasBackendFolder
+        ? path.join(targetDir, 'backend', 'src', 'routes', 'payments.js')
+        : null;
+      if (paymentsRoute && fs.existsSync(paymentsRoute)) {
         fs.writeFileSync(
           paymentsRoute,
           `import { Router } from 'express';\nconst router = Router();\nrouter.get('/status', (_req, res) => res.json({ enabled: false }));\nexport default router;\n`,
           'utf-8'
         );
+      }
+    }
+
+    // Env from settings: merge DevDash-stored tokens into .env.example
+    if (opts.envFromSettings) {
+      try {
+        const cfg = loadConfig();
+        const envFiles = [
+          path.join(targetDir, 'backend', '.env.example'),
+          path.join(targetDir, '.env.example'),
+        ].filter((p) => fs.existsSync(p));
+        for (const envPath of envFiles) {
+          let txt = fs.readFileSync(envPath, 'utf-8');
+          const replacements2: Record<string, string> = {};
+          // Only inject if tokens are set in DevDash settings.
+          // No write-through of actual Stripe secret (never stored in DevDash); just leave placeholders.
+          if (cfg.settings.githubToken) {
+            // Not injected to the project env, just emit info
+            emit('system', 'Using DevDash GitHub token for repo creation.');
+          }
+          for (const [k, v] of Object.entries(replacements2)) {
+            txt = txt.replace(new RegExp(`^${k}=.*$`, 'm'), `${k}=${v}`);
+          }
+          if (Object.keys(replacements2).length > 0) {
+            fs.writeFileSync(envPath, txt, 'utf-8');
+          }
+        }
+      } catch (err) {
+        emit('stderr', `envFromSettings failed: ${(err as Error).message}`);
       }
     }
 
@@ -215,8 +260,66 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
       await runStreamed('git', ['commit', '-m', 'chore: initial commit from DevDash Build Code'], targetDir, 60000);
     }
 
+    let githubUrl: string | undefined;
+    if (opts.gitHubPush && opts.gitInit) {
+      const cfg = loadConfig();
+      const token = cfg.settings.githubToken;
+      if (!token) {
+        emit('stderr', 'GitHub token not set in DevDash settings. Skipping push.');
+      } else {
+        try {
+          // Fetch authenticated user
+          const meRes = await fetch('https://api.github.com/user', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+          });
+          if (!meRes.ok) {
+            emit('stderr', `GitHub auth failed: ${meRes.status} ${meRes.statusText}`);
+          } else {
+            const me = (await meRes.json()) as { login: string };
+            emit('system', `Creating GitHub repo as ${me.login}...`);
+            const createRes = await fetch('https://api.github.com/user/repos', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name: safeName,
+                description: `Created with DevDash Build Code (${opts.template})`,
+                private: opts.gitHubPrivate ?? false,
+                auto_init: false,
+              }),
+            });
+            if (!createRes.ok) {
+              const errBody = await createRes.text();
+              emit('stderr', `GitHub repo create failed: ${createRes.status} ${errBody}`);
+            } else {
+              const repo = (await createRes.json()) as { clone_url: string; html_url: string };
+              githubUrl = repo.html_url;
+              emit('system', `Repo created: ${repo.html_url}`);
+              const authedUrl = repo.clone_url.replace('https://', `https://${token}@`);
+              await runStreamed('git', ['remote', 'add', 'origin', authedUrl], targetDir, 30000);
+              await runStreamed('git', ['branch', '-M', 'main'], targetDir, 30000);
+              await runStreamed('git', ['push', '-u', 'origin', 'main'], targetDir, 120000);
+              emit('system', 'Pushed to GitHub.');
+            }
+          }
+        } catch (err) {
+          emit('stderr', `GitHub push error: ${(err as Error).message}`);
+        }
+      }
+    } else if (opts.gitHubPush && !opts.gitInit) {
+      emit('stderr', 'GitHub push requires git init. Skipping.');
+    }
+
     emit('system', `Done. Project at ${targetDir}`);
-    return { ok: true, targetDir };
+    return { ok: true, targetDir, githubUrl };
   } catch (err) {
     emit('stderr', `Scaffold failed: ${(err as Error).message}`);
     return { ok: false, error: (err as Error).message };

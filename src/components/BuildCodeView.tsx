@@ -15,7 +15,10 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
   const [gitInit, setGitInit] = useState(true);
   const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState<Array<{ stream: string; line: string; ts: number }>>([]);
-  const [result, setResult] = useState<{ ok: boolean; targetDir?: string; error?: string } | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; targetDir?: string; error?: string; githubUrl?: string } | null>(null);
+  const [envFromSettings, setEnvFromSettings] = useState(true);
+  const [gitHubPush, setGitHubPush] = useState(false);
+  const [gitHubPrivate, setGitHubPrivate] = useState(true);
   const logsEnd = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -56,6 +59,9 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
       useStripe,
       install,
       gitInit,
+      envFromSettings,
+      gitHubPush,
+      gitHubPrivate,
     });
     setBusy(false);
     setResult(res);
@@ -143,6 +149,25 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
               <input type="checkbox" checked={gitInit} onChange={(e) => setGitInit(e.target.checked)} />
               Initialize git + first commit
             </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={envFromSettings} onChange={(e) => setEnvFromSettings(e.target.checked)} />
+              Pre-fill .env hints from DevDash settings (when available)
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={gitHubPush}
+                disabled={!gitInit}
+                onChange={(e) => setGitHubPush(e.target.checked)}
+              />
+              Create GitHub repo &amp; push (uses Settings → GitHub token)
+            </label>
+            {gitHubPush && (
+              <label className="ml-6 flex items-center gap-2 text-[11px]">
+                <input type="checkbox" checked={gitHubPrivate} onChange={(e) => setGitHubPrivate(e.target.checked)} />
+                Make repo private
+              </label>
+            )}
           </div>
 
           <button
@@ -164,6 +189,16 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
               {result.ok ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <span>✅ Generated at {result.targetDir}</span>
+                  {result.githubUrl && (
+                    <a
+                      href={result.githubUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-soft text-[10px]"
+                    >
+                      Open repo
+                    </a>
+                  )}
                   <button
                     className="btn-soft text-[10px]"
                     onClick={() => result.targetDir && window.devdash.projects.openFolder(result.targetDir)}

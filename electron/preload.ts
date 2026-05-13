@@ -110,8 +110,18 @@ const api = {
   scaffold: {
     templates: () => ipcRenderer.invoke('scaffold:templates'),
     pickParent: () => ipcRenderer.invoke('scaffold:pickParent'),
-    run: (opts: { projectName: string; targetParentDir: string; template: string; displayName: string; useStripe: boolean; install: boolean; gitInit: boolean }) =>
-      ipcRenderer.invoke('scaffold:run', opts),
+    run: (opts: {
+      projectName: string;
+      targetParentDir: string;
+      template: string;
+      displayName: string;
+      useStripe: boolean;
+      install: boolean;
+      gitInit: boolean;
+      envFromSettings?: boolean;
+      gitHubPush?: boolean;
+      gitHubPrivate?: boolean;
+    }) => ipcRenderer.invoke('scaffold:run', opts),
     isActive: () => ipcRenderer.invoke('scaffold:isActive'),
     onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => {
       const h = (_: unknown, payload: any) => cb(payload);

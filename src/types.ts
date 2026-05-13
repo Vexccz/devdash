@@ -618,7 +618,18 @@ declare global {
       scaffold: {
         templates: () => Promise<Array<{ id: string; label: string; description: string }>>;
         pickParent: () => Promise<{ ok: boolean; path?: string }>;
-        run: (opts: { projectName: string; targetParentDir: string; template: string; displayName: string; useStripe: boolean; install: boolean; gitInit: boolean }) => Promise<{ ok: boolean; targetDir?: string; error?: string }>;
+        run: (opts: {
+          projectName: string;
+          targetParentDir: string;
+          template: string;
+          displayName: string;
+          useStripe: boolean;
+          install: boolean;
+          gitInit: boolean;
+          envFromSettings?: boolean;
+          gitHubPush?: boolean;
+          gitHubPrivate?: boolean;
+        }) => Promise<{ ok: boolean; targetDir?: string; error?: string; githubUrl?: string }>;
         isActive: () => Promise<boolean>;
         onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => () => void;
       };

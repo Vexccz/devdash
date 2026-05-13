@@ -821,7 +821,7 @@ function registerIpc() {
         addProject({
           name: opts.displayName || opts.projectName,
           path: result.targetDir,
-          githubUrl: undefined,
+          githubUrl: result.githubUrl,
           liveUrl: undefined,
           deployProvider: 'none',
         });
