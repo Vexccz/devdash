@@ -1,6 +1,6 @@
 {
   "name": "devdash",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "DevDash - Windows dashboard for local projects + deploy radar (Vercel/Render).",
   "main": "dist-electron/main.js",
   "author": "Vexccz",

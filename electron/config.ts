@@ -43,6 +43,7 @@ export interface AppConfig {
     ollamaTemperature: number;
     ollamaApiKey: string;
     theme: 'dark' | 'light' | 'system';
+    onboardingComplete?: boolean;
   };
 }
 
@@ -68,6 +69,7 @@ const DEFAULT_CONFIG: AppConfig = {
     ollamaTemperature: 0.7,
     ollamaApiKey: '',
     theme: 'dark',
+    onboardingComplete: false,
   },
 };
 

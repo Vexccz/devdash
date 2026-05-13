@@ -13,6 +13,7 @@ import ChatView from './components/ChatView';
 import AutomationsView from './components/AutomationsView';
 import DbHealthView from './components/DbHealthView';
 import MetricsView from './components/MetricsView';
+import OnboardingWizard from './components/OnboardingWizard';
 import ShortcutsOverlay from './components/ShortcutsOverlay';
 import Toasts from './components/Toasts';
 import type { ProjectConfig } from './types';
@@ -26,6 +27,7 @@ export default function App() {
   const [detail, setDetail] = useState<{ project: ProjectConfig; initialTab?: DetailTab } | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const loadProjects = async () => {
     setProjects(await window.devdash.projects.list());
@@ -33,6 +35,13 @@ export default function App() {
 
   useEffect(() => {
     void loadProjects();
+    void (async () => {
+      const s = await window.devdash.settings.get();
+      if (!s.onboardingComplete) setShowOnboarding(true);
+    })();
+    const h = () => setShowOnboarding(true);
+    window.addEventListener('devdash:restart-onboarding', h);
+    return () => window.removeEventListener('devdash:restart-onboarding', h);
   }, []);
 
   // Apply theme from settings
@@ -128,6 +137,14 @@ export default function App() {
       )}
       <Toasts />
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      {showOnboarding && (
+        <OnboardingWizard
+          onComplete={() => {
+            setShowOnboarding(false);
+            void loadProjects();
+          }}
+        />
+      )}
     </div>
   );
 }

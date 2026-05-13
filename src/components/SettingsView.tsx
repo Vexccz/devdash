@@ -285,6 +285,12 @@ export default function SettingsView() {
             >
               GitHub repo
             </button>
+            <button
+              onClick={() => window.dispatchEvent(new Event('devdash:restart-onboarding'))}
+              className="rounded-md border border-dash-line bg-dash-panel/60 px-3 py-1.5 text-[11px] text-dash-text hover:border-dash-indigo/60"
+            >
+              Re-run setup wizard
+            </button>
           </div>
         </div>
       </section>

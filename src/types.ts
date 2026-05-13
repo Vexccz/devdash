@@ -114,6 +114,7 @@ export interface AppSettings {
   ollamaTemperature: number;
   ollamaApiKey: string;
   theme: 'dark' | 'light' | 'system';
+  onboardingComplete?: boolean;
 }
 
 export interface Toast {
