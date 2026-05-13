@@ -198,6 +198,7 @@ const api = {
     delete: (id: string) => ipcRenderer.invoke('dbhealth:delete', id),
     ping: (id: string) => ipcRenderer.invoke('dbhealth:ping', id),
     pingProject: (projectId: string) => ipcRenderer.invoke('dbhealth:pingProject', projectId),
+    autoDetect: (projectId: string) => ipcRenderer.invoke('dbhealth:autoDetect', projectId),
   },
   metrics: {
     render: (projectId: string, hours?: number) =>

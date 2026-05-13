@@ -56,7 +56,7 @@ function parsePortFromViteConfig(dir: string): number | null {
   }
 }
 
-export function detectFramework(dir: string): FrameworkInfo {
+export function detectFramework(dir: string, depth = 0): FrameworkInfo {
   const fallback: FrameworkInfo = {
     id: 'unknown',
     label: 'unknown',
@@ -68,6 +68,36 @@ export function detectFramework(dir: string): FrameworkInfo {
   };
 
   if (!fs.existsSync(dir)) return fallback;
+
+  const result = detectAtPath(dir);
+  if (result.id !== 'unknown') return result;
+
+  // No runnable framework at root → scan common subdirs once
+  if (depth === 0) {
+    const subs = ['frontend', 'web', 'client', 'app', 'apps/web', 'packages/web', 'backend', 'server', 'api'];
+    for (const sub of subs) {
+      const subPath = path.join(dir, sub);
+      if (!fs.existsSync(subPath)) continue;
+      const subResult = detectAtPath(subPath);
+      if (subResult.id !== 'unknown') {
+        return { ...subResult, label: `${subResult.label} (${sub})` };
+      }
+    }
+  }
+
+  return fallback;
+}
+
+function detectAtPath(dir: string): FrameworkInfo {
+  const fallback: FrameworkInfo = {
+    id: 'unknown',
+    label: 'unknown',
+    command: 'npm',
+    args: ['run', 'dev'],
+    port: null,
+    localUrl: null,
+    cwd: dir,
+  };
 
   // Flutter
   if (fs.existsSync(path.join(dir, 'pubspec.yaml'))) {

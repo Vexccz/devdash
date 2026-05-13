@@ -705,6 +705,9 @@ function registerIpc() {
   ipcMain.handle('dbhealth:pingProject', (_e, projectId: string) =>
     dbhealth.pingAllForProject(projectId)
   );
+  ipcMain.handle('dbhealth:autoDetect', (_e, projectId: string) =>
+    dbhealth.autoDetectFromProject(projectId)
+  );
 
   // Render metrics
   ipcMain.handle('metrics:render', (_e, args: { projectId: string; hours?: number }) =>

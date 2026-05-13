@@ -80,6 +80,23 @@ export default function DbHealthView() {
     });
   };
 
+  const autoDetect = async () => {
+    if (projects.length === 0) return;
+    const results: string[] = [];
+    for (const p of projects) {
+      const r = await window.devdash.dbhealth.autoDetect(p.id);
+      if (r.added.length) {
+        results.push(`${p.name}: +${r.added.length}`);
+      }
+    }
+    await loadAll();
+    if (results.length === 0) {
+      alert('No new database URLs found in env files.');
+    } else {
+      alert(`Auto-detected:\n${results.join('\n')}`);
+    }
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="mb-3 flex items-center justify-between">
@@ -88,6 +105,14 @@ export default function DbHealthView() {
           <p className="text-xs text-dash-mute">Ping MongoDB and Postgres connections per project.</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={autoDetect}
+            disabled={projects.length === 0}
+            className="rounded-md border border-dash-line px-3 py-1.5 text-xs hover:bg-white/5 disabled:opacity-50"
+            title="Scan env files for MONGODB_URI / DATABASE_URL etc"
+          >
+            Auto-detect from env
+          </button>
           <button
             onClick={pingAll}
             disabled={targets.length === 0}

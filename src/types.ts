@@ -501,6 +501,7 @@ declare global {
         delete: (id: string) => Promise<{ ok: boolean }>;
         ping: (id: string) => Promise<DbHealthResult>;
         pingProject: (projectId: string) => Promise<DbHealthResult[]>;
+        autoDetect: (projectId: string) => Promise<{ added: DbTarget[]; skipped: Array<{ key: string; reason: string }>; scanned: string[] }>;
       };
       metrics: {
         render: (projectId: string, hours?: number) => Promise<RenderMetricsResult>;
