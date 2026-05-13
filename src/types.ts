@@ -400,6 +400,28 @@ declare global {
         list: () => Promise<{ items: DeployItem[]; errors: { projectId: string; error: string }[] }>;
         refresh: () => Promise<{ items: DeployItem[]; errors: { projectId: string; error: string }[] }>;
         trigger: (id: string) => Promise<{ ok: boolean; provider?: string; url?: string; id?: string; error?: string }>;
+        createNew: (input: {
+          projectId: string;
+          provider: 'vercel' | 'render';
+          framework?: string;
+          buildCommand?: string;
+          outputDirectory?: string;
+          rootDirectory?: string;
+          branch?: string;
+          serviceType?: 'web_service' | 'static_site';
+          region?: string;
+          plan?: 'free' | 'starter' | 'standard';
+          envVars?: Array<{ key: string; value: string }>;
+        }) => Promise<{
+          ok: boolean;
+          provider: 'vercel' | 'render';
+          deployId?: string;
+          deployUrl?: string;
+          liveUrl?: string;
+          dashboardUrl?: string;
+          error?: string;
+          details?: string;
+        }>;
         onUpdate: (cb: (payload: { items: DeployItem[]; errors: { projectId: string; error: string }[]; manual: boolean }) => void) => () => void;
         onToast: (cb: (payload: { type: 'success' | 'error'; title: string; projectId: string }) => void) => () => void;
       };

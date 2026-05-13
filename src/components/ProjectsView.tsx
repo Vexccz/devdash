@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { BundleSizeRow, DepSummary, ProjectConfig, ProjectStatus, UptimeSummary } from '../types';
 import AddProjectModal from './AddProjectModal';
 import SmartImportModal from './SmartImportModal';
+import NewDeploymentModal from './NewDeploymentModal';
 import QuickCommitModal from './QuickCommitModal';
 import DiffViewerModal from './DiffViewerModal';
 import PRListModal from './PRListModal';
@@ -15,6 +16,7 @@ export default function ProjectsView({ onOpenProject }: Props) {
   const [loading, setLoading] = useState<boolean>(true);
   const [showAdd, setShowAdd] = useState<boolean>(false);
   const [showImport, setShowImport] = useState<boolean>(false);
+  const [deployNew, setDeployNew] = useState<ProjectConfig | null>(null);
   const [editing, setEditing] = useState<ProjectConfig | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [lastFetchAt, setLastFetchAt] = useState<number>(0);
@@ -185,6 +187,7 @@ export default function ProjectsView({ onOpenProject }: Props) {
                 onQuickCommit={() => setQuickCommitFor({ id: s.project.id, name: s.project.name })}
                 onOpenDiff={() => setDiffFor({ id: s.project.id, name: s.project.name })}
                 onOpenPRs={() => setPrsFor({ id: s.project.id, name: s.project.name })}
+                onDeployNew={() => setDeployNew(s.project)}
               />
             ))}
           </div>
@@ -214,6 +217,17 @@ export default function ProjectsView({ onOpenProject }: Props) {
           void load(false);
         }}
       />
+
+      {deployNew && (
+        <NewDeploymentModal
+          project={deployNew}
+          onClose={() => setDeployNew(null)}
+          onSuccess={() => {
+            setDeployNew(null);
+            void load(false);
+          }}
+        />
+      )}
 
       {quickCommitFor && (
         <QuickCommitModal
@@ -258,6 +272,7 @@ function ProjectCard({
   onQuickCommit,
   onOpenDiff,
   onOpenPRs,
+  onDeployNew,
 }: {
   data: ProjectStatus;
   uptime: UptimeSummary | null;
@@ -270,6 +285,7 @@ function ProjectCard({
   onQuickCommit: () => void;
   onOpenDiff: () => void;
   onOpenPRs: () => void;
+  onDeployNew: () => void;
 }) {
   const { project, git, framework, devserver } = data;
   const [busy, setBusy] = useState<string | null>(null);
@@ -495,6 +511,14 @@ function ProjectCard({
             }
           >
             🚀 Redeploy
+          </ActionBtn>
+        )}
+        {(project.deployProvider === 'none' || !project.deployId) && (
+          <ActionBtn
+            disabled={busy !== null}
+            onClick={onDeployNew}
+          >
+            🚀 Deploy
           </ActionBtn>
         )}
         <ActionBtn disabled={busy !== null} onClick={() => onOpen('release')}>

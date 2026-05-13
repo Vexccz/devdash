@@ -46,6 +46,7 @@ const api = {
     list: () => ipcRenderer.invoke('deploys:list'),
     refresh: () => ipcRenderer.invoke('deploys:refresh'),
     trigger: (id: string) => ipcRenderer.invoke('deploys:trigger', id),
+    createNew: (input: any) => ipcRenderer.invoke('deploys:createNew', input),
     onUpdate: (cb: (payload: any) => void) => {
       const h = (_: unknown, payload: any) => cb(payload);
       ipcRenderer.on('deploys:update', h);

@@ -47,6 +47,7 @@ import * as sentrymod from './sentry';
 import * as automations from './automations';
 import * as dbhealth from './dbhealth';
 import { inspectPath, scanParentFolder } from './inspect';
+import { createDeployment } from './createdeploy';
 import { fetchRenderMetrics } from './rendermetrics';
 import { fetchVercelAnalytics } from './vercelanalytics';
 import { detectFramework } from './frameworks';
@@ -748,6 +749,8 @@ function registerIpc() {
   ipcMain.handle('analytics:vercel', (_e, args: { projectId: string; days?: number }) =>
     fetchVercelAnalytics(args.projectId, args.days ?? 7)
   );
+
+  ipcMain.handle('deploys:createNew', (_e, input: any) => createDeployment(input));
 
   // Settings
   ipcMain.handle('settings:get', () => loadConfig().settings);
