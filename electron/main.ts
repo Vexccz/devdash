@@ -679,6 +679,12 @@ function registerIpc() {
     return depcheck.runForProject(id, project.path);
   });
   ipcMain.handle('deps:latest', (_e, id: string) => depcheck.latest(id));
+  ipcMain.handle('deps:safeUpdate', async (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, error: 'Project not found', steps: [] };
+    return depcheck.safeUpdate(project.path);
+  });
 
   // Heatmap
   ipcMain.handle('heatmap:build', async (_e, id: string) => {

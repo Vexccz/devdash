@@ -101,6 +101,7 @@ const api = {
   deps: {
     runNow: (id: string) => ipcRenderer.invoke('deps:runNow', id),
     latest: (id: string) => ipcRenderer.invoke('deps:latest', id),
+    safeUpdate: (id: string) => ipcRenderer.invoke('deps:safeUpdate', id),
   },
   heatmap: {
     build: (id: string) => ipcRenderer.invoke('heatmap:build', id),

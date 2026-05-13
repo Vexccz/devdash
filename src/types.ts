@@ -230,6 +230,20 @@ export interface OutdatedPackage {
   type: 'major' | 'minor' | 'patch' | 'other';
 }
 
+export interface AuditCounts {
+  low: number;
+  moderate: number;
+  high: number;
+  critical: number;
+  total: number;
+}
+
+export interface EngineCheck {
+  required: string | null;
+  installed: string;
+  ok: boolean;
+}
+
 export interface DepSummary {
   projectId: string;
   runAt: number;
@@ -237,6 +251,19 @@ export interface DepSummary {
   majorCount: number;
   minorCount: number;
   patchCount: number;
+  audit?: AuditCounts;
+  engine?: EngineCheck;
+}
+
+export interface SafeUpdateResult {
+  ok: boolean;
+  error?: string;
+  updated?: string[];
+  auditFixed?: number;
+  buildOk?: boolean;
+  buildOutput?: string;
+  rolledBack?: boolean;
+  steps: string[];
 }
 
 export interface HeatmapDay {
@@ -467,6 +494,7 @@ declare global {
       deps: {
         runNow: (id: string) => Promise<DepSummary | null>;
         latest: (id: string) => Promise<DepSummary | null>;
+        safeUpdate: (id: string) => Promise<SafeUpdateResult>;
       };
       heatmap: {
         build: (id: string) => Promise<HeatmapResult | null>;
