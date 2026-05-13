@@ -94,6 +94,19 @@ const api = {
     kill: (pid: number) => ipcRenderer.invoke('ports:kill', pid),
     killByProject: (projectId: string) => ipcRenderer.invoke('ports:killByProject', projectId),
   },
+  capacitor: {
+    detect: (projectId: string) => ipcRenderer.invoke('capacitor:detect', projectId),
+    detectJava: (capVersion?: string) => ipcRenderer.invoke('capacitor:detectJava', capVersion),
+    isBuilding: (projectId: string) => ipcRenderer.invoke('capacitor:isBuilding', projectId),
+    buildApk: (args: { id: string; flavor: 'debug' | 'release'; runWebBuild: boolean; runSync: boolean; outputToDownloads?: boolean }) =>
+      ipcRenderer.invoke('capacitor:buildApk', args),
+    openApkFolder: (apkPath: string) => ipcRenderer.invoke('capacitor:openApkFolder', apkPath),
+    onLog: (cb: (e: { projectId: string; stream: string; line: string; ts: number }) => void) => {
+      const h = (_: unknown, payload: any) => cb(payload);
+      ipcRenderer.on('capacitor:log', h);
+      return () => ipcRenderer.removeListener('capacitor:log', h);
+    },
+  },
   time: {
     enter: (id: string) => ipcRenderer.invoke('time:enter', id),
     leave: (id: string) => ipcRenderer.invoke('time:leave', id),

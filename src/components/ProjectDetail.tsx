@@ -20,7 +20,7 @@ import type {
 import QuickCommitModal from './QuickCommitModal';
 import DiffViewerModal from './DiffViewerModal';
 
-type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release' | 'team';
+type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release' | 'team' | 'mobile';
 
 interface Props {
   project: ProjectConfig;
@@ -62,6 +62,7 @@ export default function ProjectDetail({ project, initialTab = 'overview', allPro
     { id: 'screenshots', label: 'Shots' },
     { id: 'release', label: 'Release' },
     { id: 'team', label: 'Team' },
+    { id: 'mobile', label: 'Mobile' },
   ];
 
   return (
@@ -130,6 +131,7 @@ export default function ProjectDetail({ project, initialTab = 'overview', allPro
           {tab === 'screenshots' && <ScreenshotsTab project={project} />}
           {tab === 'release' && <ReleaseTab project={project} />}
           {tab === 'team' && <TeamTab project={project} />}
+          {tab === 'mobile' && <MobileTab project={project} />}
         </div>
       </div>
     </div>
@@ -1625,6 +1627,229 @@ function TeamTab({ project }: { project: ProjectConfig }) {
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+function MobileTab({ project }: { project: ProjectConfig }) {
+  const [info, setInfo] = useState<{
+    isCapacitor: boolean;
+    capacitorVersion?: string;
+    androidFolder: boolean;
+    appId?: string;
+    appName?: string;
+    webDir?: string;
+    error?: string;
+  } | null>(null);
+  const [java, setJava] = useState<{
+    ok: boolean;
+    installed?: string;
+    major?: number;
+    required?: number;
+    compatible?: boolean;
+    hint?: string;
+    error?: string;
+  } | null>(null);
+  const [flavor, setFlavor] = useState<'debug' | 'release'>('debug');
+  const [runWebBuild, setRunWebBuild] = useState(true);
+  const [runSync, setRunSync] = useState(true);
+  const [copyToDownloads, setCopyToDownloads] = useState(true);
+  const [building, setBuilding] = useState(false);
+  const [logs, setLogs] = useState<Array<{ stream: string; line: string; ts: number }>>([]);
+  const [result, setResult] = useState<{ ok: boolean; apkPath?: string; copiedTo?: string; durationMs?: number; error?: string } | null>(null);
+  const logsEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const det = await window.devdash.capacitor.detect(project.id);
+      setInfo(det);
+      if (det.isCapacitor) {
+        const j = await window.devdash.capacitor.detectJava(det.capacitorVersion);
+        setJava(j);
+      }
+      setBuilding(await window.devdash.capacitor.isBuilding(project.id));
+    })();
+  }, [project.id]);
+
+  useEffect(() => {
+    const off = window.devdash.capacitor.onLog((e) => {
+      if (e.projectId !== project.id) return;
+      setLogs((cur) => [...cur.slice(-499), { stream: e.stream, line: e.line, ts: e.ts }]);
+    });
+    return off;
+  }, [project.id]);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [logs.length]);
+
+  const startBuild = async () => {
+    setBuilding(true);
+    setResult(null);
+    setLogs([{ stream: 'system', line: `Starting ${flavor} build…`, ts: Date.now() }]);
+    const res = await window.devdash.capacitor.buildApk({
+      id: project.id,
+      flavor,
+      runWebBuild,
+      runSync,
+      outputToDownloads: copyToDownloads,
+    });
+    setBuilding(false);
+    setResult(res);
+  };
+
+  if (!info) {
+    return <div className="p-8 text-center text-sm text-dash-mute">Detecting Capacitor…</div>;
+  }
+
+  if (!info.isCapacitor) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="max-w-md text-center">
+          <p className="text-sm text-dash-text">Not a Capacitor project.</p>
+          <p className="mt-1 text-[11px] text-dash-mute">Install <code className="font-mono">@capacitor/core</code> and run <code className="font-mono">npx cap init</code>, then <code className="font-mono">npx cap add android</code>.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const javaOk = java?.compatible === true;
+  const javaWarn = java && !java.compatible;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex flex-col gap-3 overflow-y-auto p-4" style={{ flex: '0 0 auto' }}>
+        <div className="grid grid-cols-2 gap-3">
+          <section className="card p-3">
+            <h3 className="mb-1 text-[10px] uppercase tracking-wider text-dash-mute">App</h3>
+            <div className="text-xs text-dash-text">
+              <div><span className="text-dash-mute">Name:</span> {info.appName || '—'}</div>
+              <div><span className="text-dash-mute">ID:</span> <span className="font-mono">{info.appId || '—'}</span></div>
+              <div><span className="text-dash-mute">Web dir:</span> <span className="font-mono">{info.webDir || '—'}</span></div>
+              <div><span className="text-dash-mute">Capacitor:</span> {info.capacitorVersion || '—'}</div>
+              <div><span className="text-dash-mute">android/:</span> {info.androidFolder ? '✓ present' : '✗ missing'}</div>
+            </div>
+          </section>
+          <section className={`card p-3 ${javaWarn ? 'border-dash-warn/40' : ''}`}>
+            <h3 className="mb-1 text-[10px] uppercase tracking-wider text-dash-mute">Java</h3>
+            {!java ? (
+              <p className="text-xs text-dash-mute">Checking…</p>
+            ) : !java.ok ? (
+              <>
+                <p className="text-xs text-red-400">Java not detected.</p>
+                <p className="mt-1 text-[10px] text-dash-mute">{java.hint}</p>
+              </>
+            ) : (
+              <div className="text-xs text-dash-text">
+                <div><span className="text-dash-mute">Installed:</span> {java.installed} {javaOk && <span className="text-dash-ok">✓</span>}</div>
+                <div><span className="text-dash-mute">Required:</span> JDK {java.required}</div>
+                {javaWarn && <div className="mt-1 text-[10px] text-dash-warn">{java.hint}</div>}
+              </div>
+            )}
+          </section>
+        </div>
+
+        <section className="card p-3">
+          <h3 className="mb-2 text-[10px] uppercase tracking-wider text-dash-mute">Build APK</h3>
+          <div className="flex flex-wrap items-center gap-3 text-xs text-dash-text">
+            <label className="flex items-center gap-1.5">
+              <span className="text-dash-mute">Flavor</span>
+              <select
+                value={flavor}
+                onChange={(e) => setFlavor(e.target.value as 'debug' | 'release')}
+                className="rounded-md border border-dash-line bg-dash-bg px-2 py-1"
+              >
+                <option value="debug">debug</option>
+                <option value="release">release</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-1.5" title="Run npm run build before assembling">
+              <input type="checkbox" checked={runWebBuild} onChange={(e) => setRunWebBuild(e.target.checked)} />
+              Web build
+            </label>
+            <label className="flex items-center gap-1.5" title="Run npx cap sync android">
+              <input type="checkbox" checked={runSync} onChange={(e) => setRunSync(e.target.checked)} />
+              cap sync
+            </label>
+            <label className="flex items-center gap-1.5" title="Copy resulting APK to your Downloads folder">
+              <input type="checkbox" checked={copyToDownloads} onChange={(e) => setCopyToDownloads(e.target.checked)} />
+              Copy to Downloads
+            </label>
+            <button
+              className="btn-primary disabled:opacity-40"
+              disabled={building || !info.androidFolder}
+              onClick={startBuild}
+              title={info.androidFolder ? 'Build APK' : 'Run `npx cap add android` first'}
+            >
+              {building ? 'Building…' : `Build ${flavor} APK`}
+            </button>
+          </div>
+          {result && (
+            <div
+              className={`mt-3 rounded-md px-3 py-2 text-[11px] ${
+                result.ok
+                  ? 'border border-dash-ok/30 bg-dash-ok/10 text-dash-ok'
+                  : 'border border-red-500/30 bg-red-500/10 text-red-400'
+              }`}
+            >
+              {result.ok ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span>✅ Built in {Math.round((result.durationMs ?? 0) / 1000)}s</span>
+                  {result.apkPath && (
+                    <button
+                      className="btn-soft text-[10px]"
+                      onClick={() => result.apkPath && window.devdash.capacitor.openApkFolder(result.apkPath)}
+                    >
+                      Show in folder
+                    </button>
+                  )}
+                  {result.copiedTo && (
+                    <button
+                      className="btn-soft text-[10px]"
+                      onClick={() => result.copiedTo && window.devdash.capacitor.openApkFolder(result.copiedTo)}
+                      title={result.copiedTo}
+                    >
+                      Open Downloads copy
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <span>❌ {result.error}</span>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <div className="min-h-0 flex-1 border-t border-dash-line">
+        <div className="flex items-center justify-between border-b border-dash-line px-3 py-1.5">
+          <span className="text-[10px] uppercase tracking-wider text-dash-mute">Build log ({logs.length})</span>
+          <button className="text-[10px] text-dash-mute hover:text-dash-text" onClick={() => setLogs([])}>Clear</button>
+        </div>
+        <div className="h-full overflow-y-auto p-2 font-mono text-[10px]">
+          {logs.length === 0 ? (
+            <p className="px-2 py-1 text-dash-mute">Build output will appear here…</p>
+          ) : (
+            <>
+              {logs.map((l, i) => (
+                <div
+                  key={i}
+                  className={
+                    l.stream === 'stderr'
+                      ? 'text-red-400'
+                      : l.stream === 'system'
+                      ? 'text-dash-indigoBright'
+                      : 'text-dash-text'
+                  }
+                >
+                  {l.line}
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -37,6 +37,7 @@ import { exportConfig, importConfig } from './configbackup';
 import * as backup from './backup';
 import * as collab from './collaborators';
 import * as ports from './ports';
+import * as capacitor from './capacitor';
 import * as childprocs from './childprocs';
 import * as envman from './envman';
 import * as timer from './timer';
@@ -155,6 +156,7 @@ function createMainWindow() {
   }
 
   childprocs.bindBroadcast(() => mainWindow);
+  capacitor.bindBroadcast(() => mainWindow);
 }
 
 function setupTray() {
@@ -747,6 +749,55 @@ function registerIpc() {
     if (!target) return { ok: false, error: `No foreign process on port ${port}` };
     const killed = await ports.killPid(target.pid);
     return { ...killed, port, processName: target.processName };
+  });
+
+  // Capacitor / APK builder
+  ipcMain.handle('capacitor:detect', (_e, id: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === id);
+    if (!project) return { ok: false, isCapacitor: false, androidFolder: false, error: 'Project not found' };
+    return capacitor.detectCapacitor(project.path);
+  });
+
+  ipcMain.handle('capacitor:detectJava', (_e, capVersion: string | undefined) => {
+    return capacitor.detectJava(capVersion);
+  });
+
+  ipcMain.handle('capacitor:isBuilding', (_e, id: string) => {
+    return capacitor.isBuilding(id);
+  });
+
+  ipcMain.handle('capacitor:buildApk', async (_e, args: { id: string; flavor: 'debug' | 'release'; runWebBuild: boolean; runSync: boolean; outputToDownloads?: boolean }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === args.id);
+    if (!project) return { ok: false, error: 'Project not found' };
+    let outputDir: string | undefined;
+    if (args.outputToDownloads) {
+      try {
+        outputDir = app.getPath('downloads');
+      } catch {
+        outputDir = undefined;
+      }
+    }
+    return capacitor.buildApk({
+      projectId: project.id,
+      projectPath: project.path,
+      projectName: project.name,
+      flavor: args.flavor || 'debug',
+      runWebBuild: args.runWebBuild !== false,
+      runSync: args.runSync !== false,
+      outputDir,
+    });
+  });
+
+  ipcMain.handle('capacitor:openApkFolder', async (_e, apkPath: string) => {
+    if (!apkPath) return { ok: false, error: 'No path' };
+    try {
+      shell.showItemInFolder(apkPath);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
   });
 
   // Time

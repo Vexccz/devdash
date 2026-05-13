@@ -351,6 +351,44 @@ export interface PortKillResult {
   error?: string;
 }
 
+export interface CapacitorInfo {
+  ok: boolean;
+  isCapacitor: boolean;
+  capacitorVersion?: string;
+  androidFolder: boolean;
+  appId?: string;
+  appName?: string;
+  webDir?: string;
+  buildScript?: string;
+  error?: string;
+}
+
+export interface JavaInfo {
+  ok: boolean;
+  installed?: string;
+  major?: number;
+  javaHome?: string;
+  required?: number;
+  compatible?: boolean;
+  hint?: string;
+  error?: string;
+}
+
+export interface ApkBuildResult {
+  ok: boolean;
+  apkPath?: string;
+  copiedTo?: string;
+  durationMs?: number;
+  error?: string;
+}
+
+export interface CapacitorLogEvent {
+  projectId: string;
+  stream: 'stdout' | 'stderr' | 'system';
+  line: string;
+  ts: number;
+}
+
 export interface HeatmapDay {
   date: string;
   count: number;
@@ -568,6 +606,14 @@ declare global {
         list: () => Promise<PortsResult>;
         kill: (pid: number) => Promise<PortKillResult>;
         killByProject: (projectId: string) => Promise<PortKillResult>;
+      };
+      capacitor: {
+        detect: (projectId: string) => Promise<CapacitorInfo>;
+        detectJava: (capVersion?: string) => Promise<JavaInfo>;
+        isBuilding: (projectId: string) => Promise<boolean>;
+        buildApk: (args: { id: string; flavor: 'debug' | 'release'; runWebBuild: boolean; runSync: boolean; outputToDownloads?: boolean }) => Promise<ApkBuildResult>;
+        openApkFolder: (apkPath: string) => Promise<{ ok: boolean; error?: string }>;
+        onLog: (cb: (e: CapacitorLogEvent) => void) => () => void;
       };
       time: {
         enter: (id: string) => Promise<{ projectId: string; startedAt: number }>;
