@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { DeployItem } from '../types';
+import type { DeployItem, ProjectConfig } from '../types';
 
 type Filter = 'all' | 'ready' | 'error' | 'building';
 
@@ -11,6 +11,50 @@ export default function DeploysView() {
   const [filter, setFilter] = useState<Filter>('all');
   const [needsToken, setNeedsToken] = useState<boolean>(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [projects, setProjects] = useState<ProjectConfig[]>([]);
+  const [bulkBusy, setBulkBusy] = useState<'vercel' | 'render' | 'all' | null>(null);
+  const [toast, setToast] = useState<{ ok: number; failed: number; errors: string[] } | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const list = await window.devdash.projects.list();
+      setProjects(list);
+    })();
+  }, []);
+
+  const triggerOne = async (projectId: string) => {
+    const res = await window.devdash.deploys.trigger(projectId);
+    return res;
+  };
+
+  const triggerBulk = async (kind: 'vercel' | 'render' | 'all') => {
+    const targets = projects.filter((p) => {
+      if (!p.deployId) return false;
+      if (kind === 'all') return p.deployProvider === 'vercel' || p.deployProvider === 'render';
+      return p.deployProvider === kind;
+    });
+    if (targets.length === 0) {
+      setToast({ ok: 0, failed: 0, errors: [`No ${kind === 'all' ? '' : kind + ' '}projects with deploy IDs configured`] });
+      return;
+    }
+    if (!confirm(`Trigger redeploy for ${targets.length} project${targets.length === 1 ? '' : 's'}?`)) return;
+    setBulkBusy(kind);
+    let ok = 0, failed = 0;
+    const errs: string[] = [];
+    for (const p of targets) {
+      try {
+        const res = await triggerOne(p.id);
+        if (res.ok) ok++;
+        else { failed++; errs.push(`${p.name}: ${res.error || 'unknown'}`); }
+      } catch (err: any) {
+        failed++;
+        errs.push(`${p.name}: ${err?.message || 'failed'}`);
+      }
+    }
+    setBulkBusy(null);
+    setToast({ ok, failed, errors: errs });
+    void refresh();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +123,15 @@ export default function DeploysView() {
               {f}
             </button>
           ))}
+          <span className="mx-1 text-dash-line">|</span>
+          <button
+            onClick={() => triggerBulk('all')}
+            disabled={!!bulkBusy}
+            className="rounded-md border border-dash-indigo/40 bg-dash-indigo/10 px-2.5 py-1 text-[11px] text-dash-indigoBright hover:bg-dash-indigo/20 disabled:opacity-50"
+            title="Redeploy every project that has a deploy ID configured"
+          >
+            {bulkBusy === 'all' ? 'Triggering…' : 'Redeploy all'}
+          </button>
           <button
             onClick={refresh}
             disabled={refreshing}
@@ -92,6 +145,22 @@ export default function DeploysView() {
       {needsToken && (
         <div className="mb-3 rounded-md border border-dash-warn/40 bg-dash-warn/10 px-3 py-2 text-xs text-dash-text">
           No Vercel or Render token configured. Add one in the Settings tab to see live deploys.
+        </div>
+      )}
+
+      {toast && (
+        <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${toast.failed === 0 ? 'border-dash-ok/40 bg-dash-ok/10 text-dash-ok' : 'border-dash-warn/40 bg-dash-warn/10 text-dash-warn'}`}>
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">
+              {toast.ok} succeeded · {toast.failed} failed
+            </span>
+            <button onClick={() => setToast(null)} className="text-[11px] hover:underline">Dismiss</button>
+          </div>
+          {toast.errors.length > 0 && (
+            <ul className="mt-1 list-disc pl-5">
+              {toast.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+            </ul>
+          )}
         </div>
       )}
 
@@ -120,7 +189,7 @@ export default function DeploysView() {
         ) : (
           <ul className="flex flex-col gap-2">
             {filtered.map((d) => (
-              <DeployRow key={`${d.provider}-${d.id}`} deploy={d} />
+              <DeployRow key={`${d.provider}-${d.id}`} deploy={d} onRedeploy={() => triggerOne(d.projectId).then((r) => setToast({ ok: r.ok ? 1 : 0, failed: r.ok ? 0 : 1, errors: r.ok ? [] : [r.error || 'failed'] }))} />
             ))}
           </ul>
         )}
@@ -129,7 +198,7 @@ export default function DeploysView() {
   );
 }
 
-function DeployRow({ deploy }: { deploy: DeployItem }) {
+function DeployRow({ deploy, onRedeploy }: { deploy: DeployItem; onRedeploy: () => void }) {
   const open = (url?: string) => {
     if (!url) return;
     void window.devdash.shell.openExternal(url);
@@ -167,6 +236,15 @@ function DeployRow({ deploy }: { deploy: DeployItem }) {
         </div>
       </div>
       <div className="flex shrink-0 gap-1.5">
+        <button
+          onClick={() => {
+            if (confirm(`Trigger a new deploy for ${deploy.projectName}?`)) onRedeploy();
+          }}
+          className="rounded-md border border-dash-indigo/40 bg-dash-indigo/10 px-2.5 py-1 text-[11px] text-dash-indigoBright hover:bg-dash-indigo/20"
+          title="Trigger a new deploy on this provider"
+        >
+          Redeploy
+        </button>
         {deploy.url && (
           <button
             onClick={() => open(deploy.url)}
