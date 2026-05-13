@@ -79,6 +79,16 @@ const api = {
     export: (opts?: { includeCache?: boolean }) => ipcRenderer.invoke('backup:export', opts ?? {}),
     import: (opts?: { restoreCache?: boolean }) => ipcRenderer.invoke('backup:import', opts ?? {}),
   },
+  collab: {
+    list: (projectId: string) => ipcRenderer.invoke('collab:list', projectId),
+    invite: (projectId: string, username: string, permission: string) =>
+      ipcRenderer.invoke('collab:invite', { projectId, username, permission }),
+    remove: (projectId: string, username: string) =>
+      ipcRenderer.invoke('collab:remove', { projectId, username }),
+    cancelInvite: (projectId: string, invitationId: number) =>
+      ipcRenderer.invoke('collab:cancelInvite', { projectId, invitationId }),
+    checkToken: () => ipcRenderer.invoke('collab:checkToken'),
+  },
   time: {
     enter: (id: string) => ipcRenderer.invoke('time:enter', id),
     leave: (id: string) => ipcRenderer.invoke('time:leave', id),

@@ -44,6 +44,7 @@ export interface AppConfig {
     ollamaApiKey: string;
     theme: 'dark' | 'light' | 'system';
     onboardingComplete?: boolean;
+    githubToken?: string;
   };
 }
 
@@ -70,6 +71,7 @@ const DEFAULT_CONFIG: AppConfig = {
     ollamaApiKey: '',
     theme: 'dark',
     onboardingComplete: false,
+    githubToken: '',
   },
 };
 

@@ -7,6 +7,9 @@ export default function SettingsView() {
   const [configPath, setConfigPath] = useState<string>('');
   const [showVercel, setShowVercel] = useState(false);
   const [showRender, setShowRender] = useState(false);
+  const [showGithub, setShowGithub] = useState(false);
+  const [githubTest, setGithubTest] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testingGithub, setTestingGithub] = useState(false);
   const [savedAt, setSavedAt] = useState<number>(0);
   const [vercelTest, setVercelTest] = useState<{ ok: boolean; message: string } | null>(null);
   const [renderTest, setRenderTest] = useState<{ ok: boolean; message: string } | null>(null);
@@ -33,6 +36,23 @@ export default function SettingsView() {
     setSavedAt(Date.now());
   };
 
+  const testGithubToken = async () => {
+    setTestingGithub(true);
+    const res = await window.devdash.collab.checkToken();
+    setTestingGithub(false);
+    if (!res.ok) {
+      setGithubTest({ ok: false, message: res.error || 'Token check failed' });
+      return;
+    }
+    const scopes = res.scopes ?? [];
+    const hasRepo = scopes.includes('repo') || scopes.some((s) => s.startsWith('repo:'));
+    setGithubTest({
+      ok: hasRepo || scopes.length === 0,
+      message: scopes.length
+        ? `${res.login} · scopes: ${scopes.join(', ')}${hasRepo ? '' : ' (need repo)'}`
+        : `${res.login} (fine-grained token)`,
+    });
+  };
   const testToken = async (provider: 'vercel' | 'render') => {
     if (provider === 'vercel') {
       setTestingVercel(true);
@@ -90,6 +110,17 @@ export default function SettingsView() {
             onTest={() => testToken('render')}
             testing={testingRender}
             testResult={renderTest}
+          />
+          <TokenField
+            label="GitHub token"
+            hint="Classic token: scope `repo`. Fine-grained: Administration (read & write) + Metadata. Used for collaborator management."
+            value={settings.githubToken ?? ''}
+            show={showGithub}
+            onToggleShow={() => setShowGithub((s) => !s)}
+            onChange={(v) => update({ githubToken: v })}
+            onTest={testGithubToken}
+            testing={testingGithub}
+            testResult={githubTest}
           />
         </div>
       </section>

@@ -20,7 +20,7 @@ import type {
 import QuickCommitModal from './QuickCommitModal';
 import DiffViewerModal from './DiffViewerModal';
 
-type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release';
+type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release' | 'team';
 
 interface Props {
   project: ProjectConfig;
@@ -61,6 +61,7 @@ export default function ProjectDetail({ project, initialTab = 'overview', allPro
     { id: 'heatmap', label: 'Heatmap' },
     { id: 'screenshots', label: 'Shots' },
     { id: 'release', label: 'Release' },
+    { id: 'team', label: 'Team' },
   ];
 
   return (
@@ -128,6 +129,7 @@ export default function ProjectDetail({ project, initialTab = 'overview', allPro
           {tab === 'heatmap' && <HeatmapTab project={project} />}
           {tab === 'screenshots' && <ScreenshotsTab project={project} />}
           {tab === 'release' && <ReleaseTab project={project} />}
+          {tab === 'team' && <TeamTab project={project} />}
         </div>
       </div>
     </div>
@@ -1433,6 +1435,199 @@ function ReleaseTab({ project }: { project: ProjectConfig }) {
 }
 
 // --- Shared tiny bits ---
+
+function TeamTab({ project }: { project: ProjectConfig }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [data, setData] = useState<{ collaborators: Array<{ login: string; avatarUrl: string; htmlUrl: string; role: string }>; invitations: Array<{ id: number; invitee: string; inviteeAvatar: string; permissions: string; createdAt: string; htmlUrl: string }> } | null>(null);
+  const [username, setUsername] = useState('');
+  const [permission, setPermission] = useState<'admin' | 'maintain' | 'write' | 'triage' | 'pull'>('write');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError('');
+    const res = await window.devdash.collab.list(project.id);
+    setLoading(false);
+    if (!res.ok) {
+      setError(res.error || 'Failed to load collaborators');
+      setData(null);
+      return;
+    }
+    setData({ collaborators: res.collaborators, invitations: res.invitations });
+  };
+
+  useEffect(() => {
+    void load();
+  }, [project.id]);
+
+  const invite = async () => {
+    if (!username.trim()) {
+      setMsg({ ok: false, text: 'Enter a GitHub username' });
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    const res = await window.devdash.collab.invite(project.id, username.trim(), permission);
+    setBusy(false);
+    setMsg({ ok: res.ok, text: res.ok ? res.message || 'Invited' : res.error || 'Invite failed' });
+    if (res.ok) {
+      setUsername('');
+      void load();
+    }
+  };
+
+  const remove = async (login: string) => {
+    if (!confirm(`Remove ${login} from ${project.name}?`)) return;
+    setBusy(true);
+    const res = await window.devdash.collab.remove(project.id, login);
+    setBusy(false);
+    setMsg({ ok: res.ok, text: res.ok ? res.message || 'Removed' : res.error || 'Remove failed' });
+    if (res.ok) void load();
+  };
+
+  const cancelInvite = async (id: number, invitee: string) => {
+    if (!confirm(`Cancel pending invitation for ${invitee}?`)) return;
+    setBusy(true);
+    const res = await window.devdash.collab.cancelInvite(project.id, id);
+    setBusy(false);
+    setMsg({ ok: res.ok, text: res.ok ? res.message || 'Cancelled' : res.error || 'Cancel failed' });
+    if (res.ok) void load();
+  };
+
+  if (!project.githubUrl) {
+    return (
+      <div className="flex h-full items-center justify-center p-8">
+        <div className="text-center">
+          <p className="text-sm text-dash-text">No GitHub URL configured.</p>
+          <p className="mt-1 text-[11px] text-dash-mute">Add a `githubUrl` to this project to manage collaborators.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full overflow-y-auto p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-dash-text">Collaborators</h3>
+          <p className="text-[11px] text-dash-mute">{project.githubUrl}</p>
+        </div>
+        <button className="btn-soft" onClick={load} disabled={loading} title="Reload from GitHub">
+          {loading ? 'Loading…' : 'Refresh'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-3 rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-[11px] text-red-400">{error}</div>
+      )}
+
+      <section className="card mb-3 p-4">
+        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-dash-mute">Invite</h4>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="GitHub username"
+            className="flex-1 min-w-[180px] rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-xs text-dash-text"
+          />
+          <select
+            value={permission}
+            onChange={(e) => setPermission(e.target.value as any)}
+            className="rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 text-xs text-dash-text"
+            title="Permission level"
+          >
+            <option value="pull">Read (pull)</option>
+            <option value="triage">Triage</option>
+            <option value="write">Write (push)</option>
+            <option value="maintain">Maintain</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button className="btn-primary disabled:opacity-40" disabled={busy || !username.trim()} onClick={invite}>
+            {busy ? 'Working…' : 'Invite'}
+          </button>
+        </div>
+        {msg && (
+          <div
+            className={`mt-2 rounded-md px-3 py-1.5 text-[11px] ${
+              msg.ok
+                ? 'border border-dash-ok/30 bg-dash-ok/10 text-dash-ok'
+                : 'border border-red-500/30 bg-red-500/10 text-red-400'
+            }`}
+          >
+            {msg.text}
+          </div>
+        )}
+      </section>
+
+      {data && (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <section className="card p-4">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-dash-mute">
+              Collaborators ({data.collaborators.length})
+            </h4>
+            {data.collaborators.length === 0 ? (
+              <p className="text-xs text-dash-mute">No collaborators yet.</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {data.collaborators.map((c) => (
+                  <li key={c.login} className="flex items-center gap-2 rounded border border-dash-line/60 bg-dash-bg/40 px-2 py-1.5">
+                    <img src={c.avatarUrl} alt={c.login} className="h-6 w-6 rounded-full" />
+                    <button
+                      onClick={() => window.devdash.shell.openExternal(c.htmlUrl)}
+                      className="text-xs text-dash-text hover:text-dash-indigoBright"
+                    >
+                      @{c.login}
+                    </button>
+                    <span className="ml-auto rounded bg-dash-indigo/20 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-dash-indigoBright">
+                      {c.role}
+                    </span>
+                    <button
+                      className="text-[10px] text-dash-mute hover:text-red-400"
+                      onClick={() => remove(c.login)}
+                      title={`Remove ${c.login}`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <section className="card p-4">
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-dash-mute">
+              Pending invites ({data.invitations.length})
+            </h4>
+            {data.invitations.length === 0 ? (
+              <p className="text-xs text-dash-mute">No pending invitations.</p>
+            ) : (
+              <ul className="flex flex-col gap-1">
+                {data.invitations.map((inv) => (
+                  <li key={inv.id} className="flex items-center gap-2 rounded border border-dash-line/60 bg-dash-bg/40 px-2 py-1.5">
+                    <img src={inv.inviteeAvatar} alt={inv.invitee} className="h-6 w-6 rounded-full" />
+                    <div className="min-w-0">
+                      <div className="text-xs text-dash-text">@{inv.invitee}</div>
+                      <div className="text-[10px] text-dash-mute">{inv.permissions} · {new Date(inv.createdAt).toLocaleDateString()}</div>
+                    </div>
+                    <button
+                      className="ml-auto text-[10px] text-dash-mute hover:text-red-400"
+                      onClick={() => cancelInvite(inv.id, inv.invitee)}
+                      title="Cancel invite"
+                    >
+                      Cancel
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Card({ label, value }: { label: string; value: string }) {
   return (

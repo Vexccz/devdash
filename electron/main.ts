@@ -35,6 +35,7 @@ import * as chatCache from './cache';
 import { listModels as ollamaListModels, streamChat as ollamaStreamChat } from './ollama';
 import { exportConfig, importConfig } from './configbackup';
 import * as backup from './backup';
+import * as collab from './collaborators';
 import * as childprocs from './childprocs';
 import * as envman from './envman';
 import * as timer from './timer';
@@ -663,6 +664,41 @@ function registerIpc() {
     });
     if (res.canceled || !res.filePaths.length) return { ok: false, error: 'Cancelled' };
     return backup.restoreBackup(res.filePaths[0], { restoreCache: opts.restoreCache === true });
+  });
+
+  // Collaborators (GitHub)
+  ipcMain.handle('collab:list', async (_e, projectId: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === projectId);
+    if (!project) return { ok: false, collaborators: [], invitations: [], error: 'Project not found' };
+    if (!project.githubUrl) return { ok: false, collaborators: [], invitations: [], error: 'Project has no GitHub URL.' };
+    return collab.listCollaborators(cfg.settings.githubToken ?? '', project.githubUrl);
+  });
+
+  ipcMain.handle('collab:invite', async (_e, args: { projectId: string; username: string; permission: collab.CollabRole }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === args.projectId);
+    if (!project?.githubUrl) return { ok: false, error: 'Project missing GitHub URL.' };
+    return collab.inviteCollaborator(cfg.settings.githubToken ?? '', project.githubUrl, args.username, args.permission);
+  });
+
+  ipcMain.handle('collab:remove', async (_e, args: { projectId: string; username: string }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === args.projectId);
+    if (!project?.githubUrl) return { ok: false, error: 'Project missing GitHub URL.' };
+    return collab.removeCollaborator(cfg.settings.githubToken ?? '', project.githubUrl, args.username);
+  });
+
+  ipcMain.handle('collab:cancelInvite', async (_e, args: { projectId: string; invitationId: number }) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === args.projectId);
+    if (!project?.githubUrl) return { ok: false, error: 'Project missing GitHub URL.' };
+    return collab.cancelInvitation(cfg.settings.githubToken ?? '', project.githubUrl, args.invitationId);
+  });
+
+  ipcMain.handle('collab:checkToken', async () => {
+    const cfg = loadConfig();
+    return collab.checkTokenScopes(cfg.settings.githubToken ?? '');
   });
 
   // Time

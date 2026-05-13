@@ -115,6 +115,7 @@ export interface AppSettings {
   ollamaApiKey: string;
   theme: 'dark' | 'light' | 'system';
   onboardingComplete?: boolean;
+  githubToken?: string;
 }
 
 export interface Toast {
@@ -285,6 +286,42 @@ export interface EnvSyncPushResult {
   pushed: string[];
   failed: Array<{ key: string; error: string }>;
   error?: string;
+}
+
+export type CollabRole = 'admin' | 'maintain' | 'write' | 'triage' | 'pull';
+
+export interface Collaborator {
+  login: string;
+  id: number;
+  avatarUrl: string;
+  htmlUrl: string;
+  role: CollabRole;
+  type: string;
+}
+
+export interface PendingInvitation {
+  id: number;
+  invitee: string;
+  inviteeAvatar: string;
+  inviter: string;
+  permissions: string;
+  createdAt: string;
+  htmlUrl: string;
+}
+
+export interface CollabListResult {
+  ok: boolean;
+  owner?: string;
+  repo?: string;
+  collaborators: Collaborator[];
+  invitations: PendingInvitation[];
+  error?: string;
+}
+
+export interface CollabActionResult {
+  ok: boolean;
+  error?: string;
+  message?: string;
 }
 
 export interface HeatmapDay {
@@ -492,6 +529,13 @@ declare global {
       backup: {
         export: (opts?: { includeCache?: boolean }) => Promise<{ ok: boolean; path?: string; bytes?: number; error?: string }>;
         import: (opts?: { restoreCache?: boolean }) => Promise<{ ok: boolean; projectsRestored?: number; hadCache?: boolean; error?: string }>;
+      };
+      collab: {
+        list: (projectId: string) => Promise<CollabListResult>;
+        invite: (projectId: string, username: string, permission: CollabRole) => Promise<CollabActionResult>;
+        remove: (projectId: string, username: string) => Promise<CollabActionResult>;
+        cancelInvite: (projectId: string, invitationId: number) => Promise<CollabActionResult>;
+        checkToken: () => Promise<{ ok: boolean; scopes?: string[]; login?: string; error?: string }>;
       };
       time: {
         enter: (id: string) => Promise<{ projectId: string; startedAt: number }>;
