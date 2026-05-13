@@ -135,6 +135,15 @@ export function getAllStatuses(): Record<string, ReturnType<typeof getStatus>> {
   return out;
 }
 
+export function getManagedPids(): Map<number, string> {
+  // Map of PID -> projectId for DevDash-managed dev servers.
+  const out = new Map<number, string>();
+  for (const [id, m] of procs.entries()) {
+    if (m.running && m.proc.pid) out.set(m.proc.pid, id);
+  }
+  return out;
+}
+
 export function getBuffer(projectId: string, limit = MAX_BUFFER): LogLine[] {
   const m = procs.get(projectId);
   if (!m) return [];

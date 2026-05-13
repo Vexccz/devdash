@@ -324,6 +324,33 @@ export interface CollabActionResult {
   message?: string;
 }
 
+export interface PortEntry {
+  port: number;
+  pid: number;
+  processName: string;
+  processPath?: string;
+  protocol: 'TCP' | 'UDP';
+  localAddress: string;
+  state?: string;
+  projectId?: string;
+  projectName?: string;
+  isDevDashManaged?: boolean;
+}
+
+export interface PortsResult {
+  ok: boolean;
+  entries: PortEntry[];
+  error?: string;
+}
+
+export interface PortKillResult {
+  ok: boolean;
+  pid: number;
+  port?: number;
+  processName?: string;
+  error?: string;
+}
+
 export interface HeatmapDay {
   date: string;
   count: number;
@@ -536,6 +563,11 @@ declare global {
         remove: (projectId: string, username: string) => Promise<CollabActionResult>;
         cancelInvite: (projectId: string, invitationId: number) => Promise<CollabActionResult>;
         checkToken: () => Promise<{ ok: boolean; scopes?: string[]; login?: string; error?: string }>;
+      };
+      ports: {
+        list: () => Promise<PortsResult>;
+        kill: (pid: number) => Promise<PortKillResult>;
+        killByProject: (projectId: string) => Promise<PortKillResult>;
       };
       time: {
         enter: (id: string) => Promise<{ projectId: string; startedAt: number }>;

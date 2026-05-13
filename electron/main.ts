@@ -36,6 +36,7 @@ import { listModels as ollamaListModels, streamChat as ollamaStreamChat } from '
 import { exportConfig, importConfig } from './configbackup';
 import * as backup from './backup';
 import * as collab from './collaborators';
+import * as ports from './ports';
 import * as childprocs from './childprocs';
 import * as envman from './envman';
 import * as timer from './timer';
@@ -699,6 +700,53 @@ function registerIpc() {
   ipcMain.handle('collab:checkToken', async () => {
     const cfg = loadConfig();
     return collab.checkTokenScopes(cfg.settings.githubToken ?? '');
+  });
+
+  // Ports
+  ipcMain.handle('ports:list', async () => {
+    const res = await ports.listPorts();
+    if (!res.ok) return res;
+    const cfg = loadConfig();
+    const managedPids = childprocs.getManagedPids();
+    const projectByPort = new Map<number, { id: string; name: string }>();
+    for (const p of cfg.projects) {
+      const port = ports.detectProjectPort(p.path);
+      if (port) projectByPort.set(port, { id: p.id, name: p.name });
+    }
+    for (const e of res.entries) {
+      if (managedPids.has(e.pid)) {
+        const pid = managedPids.get(e.pid)!;
+        const proj = cfg.projects.find((p) => p.id === pid);
+        e.projectId = pid;
+        e.projectName = proj?.name;
+        e.isDevDashManaged = true;
+      } else if (projectByPort.has(e.port)) {
+        const hint = projectByPort.get(e.port)!;
+        e.projectId = hint.id;
+        e.projectName = hint.name;
+        e.isDevDashManaged = false;
+      }
+    }
+    return res;
+  });
+
+  ipcMain.handle('ports:kill', async (_e, pid: number) => {
+    return ports.killPid(pid);
+  });
+
+  ipcMain.handle('ports:killByProject', async (_e, projectId: string) => {
+    const cfg = loadConfig();
+    const project = cfg.projects.find((p) => p.id === projectId);
+    if (!project) return { ok: false, error: 'Project not found' };
+    const port = ports.detectProjectPort(project.path);
+    if (!port) return { ok: false, error: 'Could not detect project dev port' };
+    const list = await ports.listPorts();
+    if (!list.ok) return { ok: false, error: list.error || 'Ports list failed' };
+    const managedPids = childprocs.getManagedPids();
+    const target = list.entries.find((e) => e.port === port && !managedPids.has(e.pid));
+    if (!target) return { ok: false, error: `No foreign process on port ${port}` };
+    const killed = await ports.killPid(target.pid);
+    return { ...killed, port, processName: target.processName };
   });
 
   // Time

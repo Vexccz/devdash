@@ -89,6 +89,11 @@ const api = {
       ipcRenderer.invoke('collab:cancelInvite', { projectId, invitationId }),
     checkToken: () => ipcRenderer.invoke('collab:checkToken'),
   },
+  ports: {
+    list: () => ipcRenderer.invoke('ports:list'),
+    kill: (pid: number) => ipcRenderer.invoke('ports:kill', pid),
+    killByProject: (projectId: string) => ipcRenderer.invoke('ports:killByProject', projectId),
+  },
   time: {
     enter: (id: string) => ipcRenderer.invoke('time:enter', id),
     leave: (id: string) => ipcRenderer.invoke('time:leave', id),

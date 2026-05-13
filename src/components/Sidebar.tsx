@@ -1,4 +1,4 @@
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'chat' | 'settings';
 
 interface Props {
   tab: Tab;
@@ -15,6 +15,7 @@ export default function Sidebar({ tab, onChange }: Props) {
     { id: 'automations', label: 'Automations', icon: <BoltIcon /> },
     { id: 'dbhealth', label: 'DB Health', icon: <DbIcon /> },
     { id: 'metrics', label: 'Metrics', icon: <ChartIcon /> },
+    { id: 'ports', label: 'Ports', icon: <PortIcon /> },
     { id: 'chat', label: 'Chat', icon: <ChatIcon /> },
     { id: 'settings', label: 'Settings', icon: <GearIcon /> },
   ];
@@ -137,6 +138,18 @@ function ChartIcon() {
     <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M2 13V2M2 13h12" strokeLinecap="round" />
       <path d="M5 11V7M8 11V4M11 11V9" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PortIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <rect x="2" y="5" width="12" height="6" rx="1.5" />
+      <path d="M5 5V3M11 5V3" strokeLinecap="round" />
+      <circle cx="5.5" cy="8" r="0.6" fill="currentColor" />
+      <circle cx="8" cy="8" r="0.6" fill="currentColor" />
+      <circle cx="10.5" cy="8" r="0.6" fill="currentColor" />
     </svg>
   );
 }
