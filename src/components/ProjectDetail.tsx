@@ -7,6 +7,7 @@ import type {
   EnvFileDetail,
   EnvFileSummary,
   ErrorBudget,
+  GitInfo,
   HeatmapResult,
   LogLine,
   ProjectConfig,
@@ -16,6 +17,8 @@ import type {
   UptimeSummary,
   BumpKind,
 } from '../types';
+import QuickCommitModal from './QuickCommitModal';
+import DiffViewerModal from './DiffViewerModal';
 
 type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release';
 
@@ -135,14 +138,43 @@ function OverviewTab({ project, onAction }: { project: ProjectConfig; onAction: 
   const [uptime, setUptime] = useState<UptimeSummary | null>(null);
   const [bundle, setBundle] = useState<BundleSizeRow[]>([]);
   const [errBudget, setErrBudget] = useState<ErrorBudget | null>(null);
+  const [git, setGit] = useState<GitInfo | null>(null);
+  const [gitBusy, setGitBusy] = useState<string>('');
+  const [gitMsg, setGitMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
+  const [showCommit, setShowCommit] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
+
+  const loadGit = async (fetchRemote = false) => {
+    const res = (await window.devdash.projects.status(project.id, fetchRemote)) as unknown as
+      | (GitInfo & { error?: string })
+      | { error: string };
+    if (res && !('error' in res && !('ok' in res))) {
+      setGit(res as GitInfo);
+    }
+  };
 
   useEffect(() => {
     void (async () => {
       if (project.liveUrl) setUptime(await window.devdash.uptime.project(project.id));
       setBundle(await window.devdash.bundle.history(project.id));
       setErrBudget(await window.devdash.uptime.errors(project.id));
+      await loadGit(false);
     })();
   }, [project.id]);
+
+  const doPull = async () => {
+    setGitBusy('pull');
+    setGitMsg(null);
+    const res = await window.devdash.projects.pull(project.id);
+    setGitBusy('');
+    if (res.ok) {
+      setGitMsg({ kind: 'ok', text: res.output || 'Pulled' });
+      await loadGit(true);
+    } else {
+      setGitMsg({ kind: 'err', text: res.error || 'Pull failed' });
+    }
+    setTimeout(() => setGitMsg(null), 4000);
+  };
 
   const open = (url?: string) => url && window.devdash.shell.openExternal(url);
 
@@ -193,6 +225,128 @@ function OverviewTab({ project, onAction }: { project: ProjectConfig; onAction: 
               🌐 Live
             </button>
           </div>
+        </section>
+
+        <section className="card p-4 col-span-2">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-dash-mute">
+              Git
+            </h3>
+            <button
+              onClick={() => {
+                void loadGit(true);
+                onAction();
+              }}
+              title="Refresh git status (fetches remote)"
+              className="text-[10px] text-dash-mute hover:text-dash-text"
+            >
+              ↻ Refresh
+            </button>
+          </div>
+          {!git || !git.ok ? (
+            <p className="text-xs text-dash-mute">{git?.error || 'Not a git repo or path missing.'}</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded bg-dash-indigo/20 px-2 py-0.5 font-mono text-dash-indigoBright">
+                  {git.branch || 'detached'}
+                </span>
+                {!!git.ahead && (
+                  <span className="rounded bg-dash-ok/20 px-2 py-0.5 text-dash-ok" title="Commits ahead of remote">
+                    ↑ {git.ahead}
+                  </span>
+                )}
+                {!!git.behind && (
+                  <span className="rounded bg-dash-warn/20 px-2 py-0.5 text-dash-warn" title="Commits behind remote">
+                    ↓ {git.behind}
+                  </span>
+                )}
+                {git.dirty ? (
+                  <span className="rounded bg-dash-warn/20 px-2 py-0.5 text-dash-warn">
+                    {(git.modifiedCount || 0) + (git.stagedCount || 0) + (git.untrackedCount || 0)} changes
+                  </span>
+                ) : (
+                  <span className="rounded bg-dash-ok/20 px-2 py-0.5 text-dash-ok">clean</span>
+                )}
+                {git.dirty && (
+                  <span className="text-[10px] text-dash-mute">
+                    {git.modifiedCount || 0} modified · {git.stagedCount || 0} staged · {git.untrackedCount || 0} untracked
+                  </span>
+                )}
+              </div>
+
+              {git.lastCommit && (
+                <div className="rounded border border-dash-line/60 bg-dash-bg/40 px-3 py-2">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="font-mono text-dash-mute">{git.lastCommit.shortHash}</span>
+                    <span className="text-dash-text">{git.lastCommit.message}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] text-dash-mute">
+                    {git.lastCommit.author} · {git.lastCommit.date}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="btn-primary disabled:opacity-40"
+                  disabled={!git.dirty}
+                  title={git.dirty ? 'Stage, commit, and push changes' : 'No changes to commit'}
+                  onClick={() => {
+                    setShowCommit(true);
+                    onAction();
+                  }}
+                >
+                  💾 Commit
+                </button>
+                <button
+                  className="btn-soft disabled:opacity-40"
+                  disabled={gitBusy === 'pull'}
+                  title="Pull latest commits from remote"
+                  onClick={() => {
+                    void doPull();
+                    onAction();
+                  }}
+                >
+                  {gitBusy === 'pull' ? 'Pulling…' : '⬇ Pull'}
+                </button>
+                <button
+                  className="btn-soft disabled:opacity-40"
+                  disabled={!git.dirty}
+                  title={git.dirty ? 'View unstaged diff' : 'No changes'}
+                  onClick={() => {
+                    setShowDiff(true);
+                    onAction();
+                  }}
+                >
+                  👁 Diff
+                </button>
+                <button
+                  className="btn-soft disabled:opacity-40"
+                  disabled={!project.githubUrl}
+                  title="Open repo on GitHub"
+                  onClick={() => {
+                    open(project.githubUrl);
+                    onAction();
+                  }}
+                >
+                  🐙 Open repo
+                </button>
+              </div>
+
+              {gitMsg && (
+                <div
+                  className={`rounded-md border px-3 py-2 text-[11px] ${
+                    gitMsg.kind === 'ok'
+                      ? 'border-dash-ok/30 bg-dash-ok/10 text-dash-ok'
+                      : 'border-red-500/30 bg-red-500/10 text-red-400'
+                  }`}
+                >
+                  {gitMsg.text}
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="card p-4">
@@ -290,6 +444,26 @@ function OverviewTab({ project, onAction }: { project: ProjectConfig; onAction: 
           )}
         </section>
       </div>
+
+      {showCommit && (
+        <QuickCommitModal
+          projectId={project.id}
+          projectName={project.name}
+          onClose={() => setShowCommit(false)}
+          onSuccess={() => {
+            setShowCommit(false);
+            void loadGit(true);
+          }}
+        />
+      )}
+
+      {showDiff && (
+        <DiffViewerModal
+          projectId={project.id}
+          projectName={project.name}
+          onClose={() => setShowDiff(false)}
+        />
+      )}
     </div>
   );
 }
