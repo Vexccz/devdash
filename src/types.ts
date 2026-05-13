@@ -615,6 +615,13 @@ declare global {
         openApkFolder: (apkPath: string) => Promise<{ ok: boolean; error?: string }>;
         onLog: (cb: (e: CapacitorLogEvent) => void) => () => void;
       };
+      scaffold: {
+        templates: () => Promise<Array<{ id: string; label: string; description: string }>>;
+        pickParent: () => Promise<{ ok: boolean; path?: string }>;
+        run: (opts: { projectName: string; targetParentDir: string; template: string; displayName: string; useStripe: boolean; install: boolean; gitInit: boolean }) => Promise<{ ok: boolean; targetDir?: string; error?: string }>;
+        isActive: () => Promise<boolean>;
+        onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => () => void;
+      };
       time: {
         enter: (id: string) => Promise<{ projectId: string; startedAt: number }>;
         leave: (id: string) => Promise<{ stopped: boolean }>;

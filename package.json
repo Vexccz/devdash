@@ -1,6 +1,6 @@
 {
   "name": "devdash",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "DevDash - Windows dashboard for local projects + deploy radar (Vercel/Render).",
   "main": "dist-electron/main.js",
   "author": "Vexccz",
@@ -55,6 +55,12 @@
     },
     "asarUnpack": [
       "node_modules/better-sqlite3/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "templates",
+        "to": "templates"
+      }
     ]
   },
   "dependencies": {

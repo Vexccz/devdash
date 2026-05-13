@@ -8,6 +8,7 @@ import UptimeView from './components/UptimeView';
 import TimeView from './components/TimeView';
 import DepsView from './components/DepsView';
 import PortsView from './components/PortsView';
+import BuildCodeView from './components/BuildCodeView';
 import ProjectDetail from './components/ProjectDetail';
 import CommandPalette from './components/CommandPalette';
 import ChatView from './components/ChatView';
@@ -19,7 +20,7 @@ import ShortcutsOverlay from './components/ShortcutsOverlay';
 import Toasts from './components/Toasts';
 import type { ProjectConfig } from './types';
 
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'chat' | 'settings';
 type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release';
 
 export default function App() {
@@ -115,6 +116,7 @@ export default function App() {
           {tab === 'dbhealth' && <DbHealthView />}
           {tab === 'metrics' && <MetricsView />}
           {tab === 'ports' && <PortsView onOpenProject={(id) => openProject(id, 'overview')} />}
+          {tab === 'build' && <BuildCodeView onProjectCreated={() => void loadProjects()} />}
           {tab === 'chat' && <ChatView />}
           {tab === 'settings' && <SettingsView />}
         </main>

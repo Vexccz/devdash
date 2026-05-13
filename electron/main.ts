@@ -38,6 +38,7 @@ import * as backup from './backup';
 import * as collab from './collaborators';
 import * as ports from './ports';
 import * as capacitor from './capacitor';
+import * as scaffold from './scaffold';
 import * as childprocs from './childprocs';
 import * as envman from './envman';
 import * as timer from './timer';
@@ -157,6 +158,7 @@ function createMainWindow() {
 
   childprocs.bindBroadcast(() => mainWindow);
   capacitor.bindBroadcast(() => mainWindow);
+  scaffold.bindBroadcast(() => mainWindow);
 }
 
 function setupTray() {
@@ -798,6 +800,37 @@ function registerIpc() {
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
+  });
+
+  // Build code (scaffold from templates)
+  ipcMain.handle('scaffold:templates', () => scaffold.listTemplates());
+  ipcMain.handle('scaffold:isActive', () => scaffold.isActive());
+  ipcMain.handle('scaffold:pickParent', async () => {
+    const win = BrowserWindow.getFocusedWindow();
+    const res = await dialog.showOpenDialog(win!, {
+      title: 'Choose parent folder for the new project',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (res.canceled || !res.filePaths.length) return { ok: false };
+    return { ok: true, path: res.filePaths[0] };
+  });
+  ipcMain.handle('scaffold:run', async (_e, opts: scaffold.ScaffoldOptions) => {
+    const result = await scaffold.scaffold(opts);
+    if (result.ok && result.targetDir) {
+      try {
+        addProject({
+          name: opts.displayName || opts.projectName,
+          path: result.targetDir,
+          githubUrl: undefined,
+          liveUrl: undefined,
+          deployProvider: 'none',
+        });
+      } catch (err) {
+        // not fatal; just log
+        console.error('auto-add scaffold project failed:', err);
+      }
+    }
+    return result;
   });
 
   // Time

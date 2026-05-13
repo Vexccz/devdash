@@ -1,4 +1,4 @@
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'chat' | 'settings';
 
 interface Props {
   tab: Tab;
@@ -16,6 +16,7 @@ export default function Sidebar({ tab, onChange }: Props) {
     { id: 'dbhealth', label: 'DB Health', icon: <DbIcon /> },
     { id: 'metrics', label: 'Metrics', icon: <ChartIcon /> },
     { id: 'ports', label: 'Ports', icon: <PortIcon /> },
+    { id: 'build', label: 'Build code', icon: <BuildIcon /> },
     { id: 'chat', label: 'Chat', icon: <ChatIcon /> },
     { id: 'settings', label: 'Settings', icon: <GearIcon /> },
   ];
@@ -150,6 +151,16 @@ function PortIcon() {
       <circle cx="5.5" cy="8" r="0.6" fill="currentColor" />
       <circle cx="8" cy="8" r="0.6" fill="currentColor" />
       <circle cx="10.5" cy="8" r="0.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+function BuildIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M3 12l3-3 2 2 5-5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 6h3v3" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="2" y="2" width="12" height="12" rx="1.5" />
     </svg>
   );
 }
