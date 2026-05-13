@@ -262,16 +262,20 @@ function stopPolling() {
 
 function runDevServerDetached(project: ProjectConfig): { ok: boolean; error?: string } {
   if (!fs.existsSync(project.path)) return { ok: false, error: 'Project path missing' };
-  const info = detectDevServer(project.path);
-  const script = info.script ? (info.script === 'start' ? 'start' : 'dev') : 'dev';
-  const command = `npm run ${script}`;
+  const fw = detectFramework(project.path);
+  if (fw.id === 'unknown') {
+    return { ok: false, error: 'No runnable framework detected (no dev/start script in root or common subfolders)' };
+  }
+  // Use the framework's resolved cwd (could be a subfolder for monorepos)
+  const cwd = fw.cwd;
+  const command = `${fw.command} ${fw.args.join(' ')}`;
   try {
     spawn(
       'powershell.exe',
       [
         '-NoExit',
         '-Command',
-        `Set-Location -LiteralPath '${project.path.replace(/'/g, "''")}'; ${command}`,
+        `Set-Location -LiteralPath '${cwd.replace(/'/g, "''")}'; ${command}`,
       ],
       {
         detached: true,

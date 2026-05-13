@@ -36,7 +36,7 @@ export async function captureForProject(
   });
 
   try {
-    await win.loadURL(url, { userAgent: 'DevDash/0.2.0 screenshot' });
+    await win.loadURL(url, { userAgent: 'DevDash/0.8.1 screenshot' });
     // Let client render
     await new Promise((r) => setTimeout(r, 3500));
     const img = await win.webContents.capturePage();

@@ -151,11 +151,12 @@ export function loadConfig(): AppConfig {
   }
   try {
     const raw = fs.readFileSync(p, 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<AppConfig>;
+    const parsed = JSON.parse(raw) as Partial<AppConfig> & Record<string, unknown>;
     const merged: AppConfig = {
+      ...parsed,
       projects: Array.isArray(parsed.projects) ? parsed.projects : [],
       settings: { ...DEFAULT_CONFIG.settings, ...(parsed.settings ?? {}) },
-    };
+    } as AppConfig;
     cached = merged;
     return merged;
   } catch (err) {

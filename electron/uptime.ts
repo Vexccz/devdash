@@ -9,7 +9,7 @@ export async function checkOne(project: ProjectConfig): Promise<UptimeRow | null
     const res = await axios.get(project.liveUrl, {
       timeout: 10000,
       validateStatus: () => true,
-      headers: { 'User-Agent': 'DevDash/0.2.0 uptime-check' },
+      headers: { 'User-Agent': 'DevDash/0.8.1 uptime-check' },
     });
     const row: Omit<UptimeRow, 'id'> = {
       projectId: project.id,
