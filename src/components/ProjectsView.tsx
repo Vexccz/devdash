@@ -440,6 +440,7 @@ function ProjectCard({
         {devManagedRunning ? (
           <ActionBtn
             disabled={busy !== null}
+            tooltip="Stop the dev server managed by DevDash"
             onClick={() => runAction('Stop dev', () => window.devdash.devserver.stop(project.id))}
           >
             ■ Stop
@@ -447,55 +448,70 @@ function ProjectCard({
         ) : (
           <ActionBtn
             disabled={busy !== null || framework?.id === 'unknown'}
+            tooltip={framework?.id === 'unknown' ? 'No dev script detected for this project' : `Run dev server (${framework?.command || 'npm run dev'})`}
             onClick={() => runAction('Run dev', () => window.devdash.devserver.start(project.id))}
           >
             ▶ Run
           </ActionBtn>
         )}
-        <ActionBtn disabled={busy !== null} onClick={() => onOpen('logs')}>
+        <ActionBtn disabled={busy !== null} tooltip="Open dev server logs (stdout/stderr)" onClick={() => onOpen('logs')}>
           📜 Logs
         </ActionBtn>
-        <ActionBtn disabled={busy !== null} onClick={() => onOpen('env')}>
+        <ActionBtn disabled={busy !== null} tooltip="View and edit environment variables (.env files)" onClick={() => onOpen('env')}>
           🔐 Env
         </ActionBtn>
         <ActionBtn
           disabled={busy !== null}
+          tooltip={`Open project folder in Explorer (${project.path})`}
           onClick={() => runAction('Open folder', () => window.devdash.projects.openFolder(project.path))}
         >
           📂 Folder
         </ActionBtn>
         <ActionBtn
           disabled={busy !== null}
+          tooltip="Open project in Visual Studio Code"
           onClick={() => runAction('Open VS Code', () => window.devdash.projects.openInVSCode(project.path))}
         >
           💻 VS Code
         </ActionBtn>
-        <ActionBtn disabled={!project.githubUrl} onClick={() => open(project.githubUrl)}>
+        <ActionBtn
+          disabled={!project.githubUrl}
+          tooltip={project.githubUrl ? `Open GitHub repo (${project.githubUrl})` : 'No GitHub URL configured for this project'}
+          onClick={() => open(project.githubUrl)}
+        >
           🐙 GitHub
         </ActionBtn>
-        <ActionBtn disabled={!project.liveUrl} onClick={() => open(project.liveUrl)}>
+        <ActionBtn
+          disabled={!project.liveUrl}
+          tooltip={project.liveUrl ? `Open live deployment (${project.liveUrl})` : 'No live URL set — deploy first or add it in project settings'}
+          onClick={() => open(project.liveUrl)}
+        >
           🌐 Live
         </ActionBtn>
         <ActionBtn
           disabled={busy !== null || !git.ok}
+          tooltip={git.ok ? 'Pull latest commits from remote origin' : 'Git not available for this project'}
           onClick={() => runAction('Git pull', () => window.devdash.projects.pull(project.id))}
         >
           ⇣ Pull
         </ActionBtn>
         <ActionBtn
           disabled={busy !== null || !git.ok}
+          tooltip="Quick commit: stage all changes, commit with a message, and push"
           onClick={onQuickCommit}
         >
           ✓ Commit
         </ActionBtn>
         <ActionBtn
           disabled={busy !== null || !git.ok}
+          tooltip="View uncommitted changes (diff viewer)"
           onClick={onOpenDiff}
         >
           □ Diff
         </ActionBtn>
         <ActionBtn
           disabled={busy !== null || !project.githubUrl}
+          tooltip={project.githubUrl ? 'View open pull requests on GitHub' : 'Requires a GitHub URL'}
           onClick={onOpenPRs}
         >
           🔀 PRs
@@ -503,6 +519,7 @@ function ProjectCard({
         {project.deployProvider !== 'none' && project.deployId && (
           <ActionBtn
             disabled={busy !== null}
+            tooltip={`Trigger a fresh deploy on ${project.deployProvider} using the latest commit`}
             onClick={() =>
               runAction('Redeploy', async () => {
                 if (!confirm(`Trigger a redeploy on ${project.deployProvider}?`)) return { ok: true };
@@ -516,12 +533,17 @@ function ProjectCard({
         {(project.deployProvider === 'none' || !project.deployId) && (
           <ActionBtn
             disabled={busy !== null}
+            tooltip="Create a new Vercel project or Render service for this repo (first deploy)"
             onClick={onDeployNew}
           >
             🚀 Deploy
           </ActionBtn>
         )}
-        <ActionBtn disabled={busy !== null} onClick={() => onOpen('release')}>
+        <ActionBtn
+          disabled={busy !== null}
+          tooltip="Release wizard: bump version, tag, and publish a GitHub release"
+          onClick={() => onOpen('release')}
+        >
           🏷 Release
         </ActionBtn>
       </div>
@@ -542,13 +564,15 @@ function ActionBtn({
   children,
   onClick,
   disabled,
+  tooltip,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  tooltip?: string;
 }) {
   return (
-    <button onClick={onClick} disabled={disabled} className="btn-soft">
+    <button onClick={onClick} disabled={disabled} title={tooltip} className="btn-soft">
       {children}
     </button>
   );
