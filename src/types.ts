@@ -271,6 +271,76 @@ export interface ErrorBudget {
   days: { day: string; count: number }[];
 }
 
+export type AutomationKind = 'pull' | 'deploy';
+
+export interface AutomationJob {
+  id: string;
+  projectId: string;
+  kind: AutomationKind;
+  schedule: string;
+  enabled: boolean;
+  lastRunAt: number | null;
+  lastError: string | null;
+  lastResult: string | null;
+  createdAt: number;
+}
+
+export interface AutomationRun {
+  id: number;
+  jobId: string;
+  projectId: string;
+  kind: string;
+  runAt: number;
+  ok: number;
+  message: string | null;
+}
+
+export type DbKind = 'mongodb' | 'postgres';
+
+export interface DbTarget {
+  id: string;
+  projectId: string;
+  label: string;
+  kind: DbKind;
+  url: string;
+  createdAt: number;
+}
+
+export interface DbHealthResult {
+  id: string;
+  ok: boolean;
+  latencyMs: number;
+  version?: string;
+  error?: string;
+  checkedAt: number;
+}
+
+export interface RenderMetricsPoint {
+  ts: number;
+  cpu: number | null;
+  memory: number | null;
+}
+
+export interface RenderMetricsResult {
+  ok: boolean;
+  serviceId: string;
+  cpu: RenderMetricsPoint[];
+  memory: RenderMetricsPoint[];
+  error?: string;
+}
+
+export interface VercelAnalyticsResult {
+  ok: boolean;
+  projectId: string;
+  totalVisitors: number | null;
+  totalPageviews: number | null;
+  periodDays: number;
+  recent: Array<{ day: string; visitors: number; pageviews: number }>;
+  topPaths: Array<{ path: string; visitors: number }>;
+  error?: string;
+  note?: string;
+}
+
 declare global {
   interface Window {
     devdash: {
@@ -414,6 +484,29 @@ declare global {
       config: {
         export: (passphrase: string) => Promise<{ ok: boolean; error?: string }>;
         import: (passphrase: string) => Promise<{ ok: boolean; error?: string }>;
+      };
+      automations: {
+        list: () => Promise<AutomationJob[]>;
+        save: (input: Omit<AutomationJob, 'id' | 'lastRunAt' | 'lastError' | 'lastResult' | 'createdAt'> & { id?: string }) => Promise<AutomationJob>;
+        delete: (id: string) => Promise<{ ok: boolean }>;
+        toggle: (id: string, enabled: boolean) => Promise<AutomationJob | null>;
+        runNow: (id: string) => Promise<{ ok: boolean; message?: string }>;
+        runs: (jobId: string, limit?: number) => Promise<AutomationRun[]>;
+        validateCron: (expr: string) => Promise<{ valid: boolean; error?: string }>;
+        onRun: (cb: (payload: { jobId: string; ok: boolean; message: string }) => void) => () => void;
+      };
+      dbhealth: {
+        list: () => Promise<DbTarget[]>;
+        save: (input: Omit<DbTarget, 'id' | 'createdAt'> & { id?: string }) => Promise<DbTarget>;
+        delete: (id: string) => Promise<{ ok: boolean }>;
+        ping: (id: string) => Promise<DbHealthResult>;
+        pingProject: (projectId: string) => Promise<DbHealthResult[]>;
+      };
+      metrics: {
+        render: (projectId: string, hours?: number) => Promise<RenderMetricsResult>;
+      };
+      analytics: {
+        vercel: (projectId: string, days?: number) => Promise<VercelAnalyticsResult>;
       };
     };
   }

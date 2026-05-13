@@ -1,4 +1,4 @@
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'chat' | 'settings';
 
 interface Props {
   tab: Tab;
@@ -12,6 +12,9 @@ export default function Sidebar({ tab, onChange }: Props) {
     { id: 'uptime', label: 'Uptime', icon: <PulseIcon /> },
     { id: 'time', label: 'Time', icon: <ClockIcon /> },
     { id: 'deps', label: 'Deps', icon: <BoxIcon /> },
+    { id: 'automations', label: 'Automations', icon: <BoltIcon /> },
+    { id: 'dbhealth', label: 'DB Health', icon: <DbIcon /> },
+    { id: 'metrics', label: 'Metrics', icon: <ChartIcon /> },
     { id: 'chat', label: 'Chat', icon: <ChatIcon /> },
     { id: 'settings', label: 'Settings', icon: <GearIcon /> },
   ];
@@ -107,6 +110,33 @@ function ChatIcon() {
   return (
     <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
       <path d="M2 4a1 1 0 011-1h10a1 1 0 011 1v7a1 1 0 01-1 1H6l-3 2.5V12H3a1 1 0 01-1-1V4z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M9 1L3 9h4l-1 6 6-8H8l1-6z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function DbIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <ellipse cx="8" cy="3.5" rx="5" ry="1.75" />
+      <path d="M3 3.5v9c0 0.97 2.24 1.75 5 1.75s5-0.78 5-1.75v-9" />
+      <path d="M3 8c0 0.97 2.24 1.75 5 1.75s5-0.78 5-1.75" />
+    </svg>
+  );
+}
+
+function ChartIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 13V2M2 13h12" strokeLinecap="round" />
+      <path d="M5 11V7M8 11V4M11 11V9" strokeLinecap="round" />
     </svg>
   );
 }

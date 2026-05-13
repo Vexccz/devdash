@@ -44,6 +44,10 @@ import * as bundlesize from './bundlesize';
 import * as heatmap from './heatmap';
 import * as screenshots from './screenshots';
 import * as sentrymod from './sentry';
+import * as automations from './automations';
+import * as dbhealth from './dbhealth';
+import { fetchRenderMetrics } from './rendermetrics';
+import { fetchVercelAnalytics } from './vercelanalytics';
 import { detectFramework } from './frameworks';
 import { generateChangelog, writeChangelogToProject } from './changelog';
 import { performRelease } from './release';
@@ -674,6 +678,44 @@ function registerIpc() {
     return { ok: true };
   });
 
+  // Automations (cron: auto-pull / auto-deploy)
+  ipcMain.handle('automation:list', () => automations.listJobs());
+  ipcMain.handle('automation:save', (_e, input: any) => automations.saveJob(input));
+  ipcMain.handle('automation:delete', (_e, id: string) => {
+    automations.deleteJob(id);
+    return { ok: true };
+  });
+  ipcMain.handle('automation:toggle', (_e, args: { id: string; enabled: boolean }) => {
+    return automations.setEnabled(args.id, args.enabled);
+  });
+  ipcMain.handle('automation:runNow', (_e, id: string) => automations.runNow(id));
+  ipcMain.handle('automation:runs', (_e, args: { jobId: string; limit?: number }) =>
+    automations.recentRuns(args.jobId, args.limit ?? 20)
+  );
+  ipcMain.handle('automation:validateCron', (_e, expr: string) => automations.validateCron(expr));
+
+  // DB health check
+  ipcMain.handle('dbhealth:list', () => dbhealth.listTargets());
+  ipcMain.handle('dbhealth:save', (_e, input: any) => dbhealth.saveTarget(input));
+  ipcMain.handle('dbhealth:delete', (_e, id: string) => {
+    dbhealth.deleteTarget(id);
+    return { ok: true };
+  });
+  ipcMain.handle('dbhealth:ping', (_e, id: string) => dbhealth.ping(id));
+  ipcMain.handle('dbhealth:pingProject', (_e, projectId: string) =>
+    dbhealth.pingAllForProject(projectId)
+  );
+
+  // Render metrics
+  ipcMain.handle('metrics:render', (_e, args: { projectId: string; hours?: number }) =>
+    fetchRenderMetrics(args.projectId, args.hours ?? 6)
+  );
+
+  // Vercel analytics
+  ipcMain.handle('analytics:vercel', (_e, args: { projectId: string; days?: number }) =>
+    fetchVercelAnalytics(args.projectId, args.days ?? 7)
+  );
+
   // Settings
   ipcMain.handle('settings:get', () => loadConfig().settings);
   ipcMain.handle('settings:update', (_e, patch: Partial<AppConfig['settings']>) => {
@@ -914,6 +956,11 @@ if (!gotLock) {
     } catch (err) {
       console.error('[scheduler] start failed:', err);
     }
+    try {
+      automations.start(broadcast);
+    } catch (err) {
+      console.error('[automations] start failed:', err);
+    }
   });
 }
 
@@ -921,6 +968,7 @@ app.on('before-quit', () => {
   quittingForReal = true;
   stopPolling();
   scheduler.stopScheduler();
+  automations.stop();
   timer.stopAll();
   childprocs.killAll();
   closeCacheDb();

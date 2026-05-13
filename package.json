@@ -1,6 +1,6 @@
 {
   "name": "devdash",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "DevDash - Windows dashboard for local projects + deploy radar (Vercel/Render).",
   "main": "dist-electron/main.js",
   "author": "Vexccz",
@@ -58,13 +58,16 @@
     ]
   },
   "dependencies": {
+    "@types/pg": "8.11.10",
     "axios": "1.16.0",
     "better-sqlite3": "11.3.0",
     "date-fns": "4.1.0",
     "dompurify": "^3.4.2",
     "highlight.js": "^11.11.1",
     "marked": "^18.0.3",
+    "mongodb": "6.10.0",
     "node-cron": "3.0.3",
+    "pg": "8.13.1",
     "simple-git": "3.36.0"
   },
   "devDependencies": {

@@ -73,6 +73,19 @@ export default function ProjectDetail({ project, initialTab = 'overview', allPro
       >
         <header className="flex items-center justify-between border-b border-dash-line px-4 py-3">
           <div className="min-w-0">
+            <nav className="mb-1 flex items-center gap-1 text-[11px] text-dash-mute">
+              <button
+                onClick={onClose}
+                className="hover:text-dash-text"
+                aria-label="Back to projects"
+              >
+                Projects
+              </button>
+              <span className="text-dash-line">/</span>
+              <span className="truncate text-dash-text">{project.name}</span>
+              <span className="text-dash-line">/</span>
+              <span className="capitalize text-dash-mute">{tab}</span>
+            </nav>
             <h2 className="truncate text-sm font-semibold text-dash-text">{project.name}</h2>
             <p className="truncate font-mono text-[11px] text-dash-mute">{project.path}</p>
           </div>

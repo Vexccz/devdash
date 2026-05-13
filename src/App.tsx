@@ -10,11 +10,14 @@ import DepsView from './components/DepsView';
 import ProjectDetail from './components/ProjectDetail';
 import CommandPalette from './components/CommandPalette';
 import ChatView from './components/ChatView';
+import AutomationsView from './components/AutomationsView';
+import DbHealthView from './components/DbHealthView';
+import MetricsView from './components/MetricsView';
 import ShortcutsOverlay from './components/ShortcutsOverlay';
 import Toasts from './components/Toasts';
 import type { ProjectConfig } from './types';
 
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'chat' | 'settings';
 type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release';
 
 export default function App() {
@@ -98,6 +101,9 @@ export default function App() {
           {tab === 'uptime' && <UptimeView onOpenProject={(id) => openProject(id, 'overview')} />}
           {tab === 'time' && <TimeView onOpenProject={(id) => openProject(id, 'time')} />}
           {tab === 'deps' && <DepsView onOpenProject={(id) => openProject(id, 'deps')} />}
+          {tab === 'automations' && <AutomationsView />}
+          {tab === 'dbhealth' && <DbHealthView />}
+          {tab === 'metrics' && <MetricsView />}
           {tab === 'chat' && <ChatView />}
           {tab === 'settings' && <SettingsView />}
         </main>

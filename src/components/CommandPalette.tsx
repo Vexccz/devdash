@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void;
   projects: ProjectConfig[];
   onOpenProject: (id: string, tab?: 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release') => void;
-  onSwitchTab: (tab: 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'chat' | 'settings') => void;
+  onSwitchTab: (tab: 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'chat' | 'settings') => void;
 }
 
 function fuzzy(query: string, candidate: string): number {
@@ -59,6 +59,10 @@ export default function CommandPalette({ open, onClose, projects, onOpenProject,
     acts.push({ id: 'go:uptime', label: 'Go: Uptime', hint: 'Tab', run: () => onSwitchTab('uptime') });
     acts.push({ id: 'go:time', label: 'Go: Time', hint: 'Tab', run: () => onSwitchTab('time') });
     acts.push({ id: 'go:deps', label: 'Go: Deps', hint: 'Tab', run: () => onSwitchTab('deps') });
+    acts.push({ id: 'go:automations', label: 'Go: Automations', hint: 'Tab', run: () => onSwitchTab('automations') });
+    acts.push({ id: 'go:dbhealth', label: 'Go: DB Health', hint: 'Tab', run: () => onSwitchTab('dbhealth') });
+    acts.push({ id: 'go:metrics', label: 'Go: Metrics', hint: 'Tab', run: () => onSwitchTab('metrics') });
+    acts.push({ id: 'go:chat', label: 'Go: Chat', hint: 'Tab', run: () => onSwitchTab('chat') });
     acts.push({ id: 'go:settings', label: 'Go: Settings', hint: 'Tab', run: () => onSwitchTab('settings') });
 
     for (const p of projects) {

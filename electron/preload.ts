@@ -178,6 +178,35 @@ const api = {
     export: (passphrase: string) => ipcRenderer.invoke('config:export', passphrase),
     import: (passphrase: string) => ipcRenderer.invoke('config:import', passphrase),
   },
+  automations: {
+    list: () => ipcRenderer.invoke('automation:list'),
+    save: (input: any) => ipcRenderer.invoke('automation:save', input),
+    delete: (id: string) => ipcRenderer.invoke('automation:delete', id),
+    toggle: (id: string, enabled: boolean) => ipcRenderer.invoke('automation:toggle', { id, enabled }),
+    runNow: (id: string) => ipcRenderer.invoke('automation:runNow', id),
+    runs: (jobId: string, limit?: number) => ipcRenderer.invoke('automation:runs', { jobId, limit }),
+    validateCron: (expr: string) => ipcRenderer.invoke('automation:validateCron', expr),
+    onRun: (cb: (payload: { jobId: string; ok: boolean; message: string }) => void) => {
+      const h = (_: unknown, payload: any) => cb(payload);
+      ipcRenderer.on('automation:run', h);
+      return () => ipcRenderer.removeListener('automation:run', h);
+    },
+  },
+  dbhealth: {
+    list: () => ipcRenderer.invoke('dbhealth:list'),
+    save: (input: any) => ipcRenderer.invoke('dbhealth:save', input),
+    delete: (id: string) => ipcRenderer.invoke('dbhealth:delete', id),
+    ping: (id: string) => ipcRenderer.invoke('dbhealth:ping', id),
+    pingProject: (projectId: string) => ipcRenderer.invoke('dbhealth:pingProject', projectId),
+  },
+  metrics: {
+    render: (projectId: string, hours?: number) =>
+      ipcRenderer.invoke('metrics:render', { projectId, hours }),
+  },
+  analytics: {
+    vercel: (projectId: string, days?: number) =>
+      ipcRenderer.invoke('analytics:vercel', { projectId, days }),
+  },
 };
 
 contextBridge.exposeInMainWorld('devdash', api);
