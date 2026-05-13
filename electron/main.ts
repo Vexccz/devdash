@@ -46,6 +46,7 @@ import * as screenshots from './screenshots';
 import * as sentrymod from './sentry';
 import * as automations from './automations';
 import * as dbhealth from './dbhealth';
+import { inspectPath, scanParentFolder } from './inspect';
 import { fetchRenderMetrics } from './rendermetrics';
 import { fetchVercelAnalytics } from './vercelanalytics';
 import { detectFramework } from './frameworks';
@@ -335,6 +336,31 @@ function registerIpc() {
     });
     if (res.canceled || res.filePaths.length === 0) return null;
     return res.filePaths[0];
+  });
+
+  ipcMain.handle('projects:inspect', (_e, targetPath: string) => inspectPath(targetPath));
+
+  ipcMain.handle('projects:scanParent', async () => {
+    const res = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+      title: 'Pick parent folder to scan',
+    });
+    if (res.canceled || res.filePaths.length === 0) return { parent: null, projects: [] };
+    const parent = res.filePaths[0];
+    const projects = await scanParentFolder(parent);
+    return { parent, projects };
+  });
+
+  ipcMain.handle('projects:importMany', (_e, inputs: any[]) => {
+    const cfg = loadConfig();
+    const existingPaths = new Set(cfg.projects.map((p) => p.path.toLowerCase()));
+    let added = 0;
+    for (const input of inputs) {
+      if (!input?.path || existingPaths.has(String(input.path).toLowerCase())) continue;
+      addProject(input);
+      added++;
+    }
+    return { added, total: inputs.length };
   });
 
   ipcMain.handle('projects:openFolder', async (_e, p: string) => {

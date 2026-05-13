@@ -30,6 +30,8 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
   const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inspecting, setInspecting] = useState(false);
+  const [inspectionNote, setInspectionNote] = useState<string | null>(null);
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -62,7 +64,44 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
 
   const pickFolder = async () => {
     const p = await window.devdash.projects.pickFolder();
-    if (p) setProjectPath(p);
+    if (p) {
+      setProjectPath(p);
+      // Only auto-fill when editing mode isn't pre-filled (new project flow)
+      if (!initial) {
+        void autoFill(p);
+      }
+    }
+  };
+
+  const autoFill = async (targetPath: string) => {
+    setInspecting(true);
+    setInspectionNote(null);
+    try {
+      const info = await window.devdash.projects.inspect(targetPath);
+      if (!info.exists) {
+        setInspectionNote('Folder not found.');
+        return;
+      }
+      if (info.name && !name.trim()) setName(info.name);
+      if (info.githubUrl && !githubUrl.trim()) setGithubUrl(info.githubUrl);
+      if (info.liveUrl && !liveUrl.trim()) setLiveUrl(info.liveUrl);
+      if (info.deployProvider && info.deployProvider !== 'none') setDeployProvider(info.deployProvider);
+      if (info.deployId && !deployId.trim()) setDeployId(info.deployId);
+
+      const bits: string[] = [];
+      if (info.framework) bits.push(`${info.framework}`);
+      if (info.deployMatchedBy === 'vercel-api') bits.push('Vercel project matched');
+      else if (info.deployMatchedBy === 'render-api') bits.push('Render service matched');
+      else if (info.githubUrl) bits.push('GitHub remote detected');
+      if (info.envHints?.missingKeys) bits.push(`${info.envHints.missingKeys} env keys missing`);
+      if (info.warnings.length) bits.push(...info.warnings);
+
+      setInspectionNote(bits.join(' · ') || 'No hints detected.');
+    } catch (err: any) {
+      setInspectionNote(err?.message || 'Inspection failed');
+    } finally {
+      setInspecting(false);
+    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -166,7 +205,19 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
               >
                 Browse
               </button>
+              <button
+                type="button"
+                onClick={() => projectPath && autoFill(projectPath)}
+                disabled={!projectPath || inspecting}
+                className="rounded-md border border-dash-indigo/40 bg-dash-indigo/10 px-3 py-1.5 text-xs text-dash-indigoBright hover:bg-dash-indigo/20 disabled:opacity-50"
+                title="Scan folder for git remote, framework, and matching Vercel/Render project"
+              >
+                {inspecting ? 'Scanning...' : 'Auto-detect'}
+              </button>
             </div>
+            {inspectionNote && (
+              <p className="mt-1 text-[11px] text-dash-mute">{inspectionNote}</p>
+            )}
           </Field>
 
           <Field label="GitHub URL (optional)">

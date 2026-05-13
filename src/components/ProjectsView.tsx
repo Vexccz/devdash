@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { BundleSizeRow, DepSummary, ProjectConfig, ProjectStatus, UptimeSummary } from '../types';
 import AddProjectModal from './AddProjectModal';
+import SmartImportModal from './SmartImportModal';
 import QuickCommitModal from './QuickCommitModal';
 import DiffViewerModal from './DiffViewerModal';
 import PRListModal from './PRListModal';
@@ -13,6 +14,7 @@ export default function ProjectsView({ onOpenProject }: Props) {
   const [statuses, setStatuses] = useState<ProjectStatus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showAdd, setShowAdd] = useState<boolean>(false);
+  const [showImport, setShowImport] = useState<boolean>(false);
   const [editing, setEditing] = useState<ProjectConfig | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [lastFetchAt, setLastFetchAt] = useState<number>(0);
@@ -112,6 +114,13 @@ export default function ProjectsView({ onOpenProject }: Props) {
             {refreshing ? 'Fetching…' : 'Refresh + git fetch'}
           </button>
           <button
+            onClick={() => setShowImport(true)}
+            className="btn-soft"
+            title="Scan a parent folder and bulk-import projects"
+          >
+            Smart import
+          </button>
+          <button
             onClick={() => setShowAdd(true)}
             className="btn-primary"
           >
@@ -196,6 +205,15 @@ export default function ProjectsView({ onOpenProject }: Props) {
           }}
         />
       )}
+
+      <SmartImportModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={() => {
+          setShowImport(false);
+          void load(false);
+        }}
+      />
 
       {quickCommitFor && (
         <QuickCommitModal

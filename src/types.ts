@@ -329,6 +329,27 @@ export interface RenderMetricsResult {
   error?: string;
 }
 
+export interface ProjectInspection {
+  path: string;
+  exists: boolean;
+  isGitRepo: boolean;
+  name: string;
+  githubUrl?: string;
+  githubOwner?: string;
+  githubRepo?: string;
+  liveUrl?: string;
+  deployProvider?: 'vercel' | 'render' | 'none';
+  deployId?: string;
+  deployMatchedBy?: 'vercel-api' | 'render-api' | 'none';
+  framework?: string;
+  envHints?: {
+    hasEnv: boolean;
+    hasEnvExample: boolean;
+    missingKeys: number;
+  };
+  warnings: string[];
+}
+
 export interface VercelAnalyticsResult {
   ok: boolean;
   projectId: string;
@@ -352,6 +373,9 @@ declare global {
         update: (id: string, patch: Partial<ProjectConfig>) => Promise<ProjectConfig[]>;
         remove: (id: string) => Promise<ProjectConfig[]>;
         pickFolder: () => Promise<string | null>;
+        inspect: (targetPath: string) => Promise<ProjectInspection>;
+        scanParent: () => Promise<{ parent: string | null; projects: ProjectInspection[] }>;
+        importMany: (inputs: Array<Omit<ProjectConfig, 'id'>>) => Promise<{ added: number; total: number }>;
         openFolder: (path: string) => Promise<{ ok: boolean; error?: string }>;
         openInVSCode: (path: string) => Promise<{ ok: boolean; error?: string }>;
         runDev: (id: string) => Promise<{ ok: boolean; error?: string }>;
