@@ -778,6 +778,21 @@ declare global {
         deleteFile: (templateId: string, filePath: string) => Promise<{ ok: boolean; error?: string }>;
         renameFile: (templateId: string, oldPath: string, newPath: string) => Promise<{ ok: boolean; error?: string }>;
         createTemplate: (opts: { id: string; name: string; description: string; duplicateFrom?: string }) => Promise<{ ok: boolean; templateId?: string; error?: string }>;
+        test: (templateId: string) => Promise<{ templateId: string; installOk: boolean; buildOk: boolean; installDurationMs: number; buildDurationMs: number; totalDurationMs: number; error?: string }>;
+        testAll: () => Promise<Array<{ templateId: string; installOk: boolean; buildOk: boolean; installDurationMs: number; buildDurationMs: number; totalDurationMs: number; error?: string }>>;
+        onTestLog: (cb: (e: { templateId: string; stream: string; line: string; ts: number }) => void) => () => void;
+      };
+      snippets: {
+        list: (filter?: { language?: string; tag?: string; search?: string; projectId?: string }) => Promise<Array<{ id: string; title: string; language: string; code: string; tags: string[]; projectId?: string; createdAt: number; updatedAt: number }>>;
+        get: (id: string) => Promise<{ id: string; title: string; language: string; code: string; tags: string[]; projectId?: string; createdAt: number; updatedAt: number } | null>;
+        save: (input: { id?: string; title: string; language: string; code: string; tags: string[]; projectId?: string }) => Promise<{ id: string; title: string; language: string; code: string; tags: string[]; projectId?: string; createdAt: number; updatedAt: number }>;
+        delete: (id: string) => Promise<{ ok: boolean }>;
+        generate: (description: string) => Promise<{ ok: boolean; snippet?: { title?: string; language?: string; code?: string; tags?: string[] }; error?: string }>;
+        insertIntoProject: (snippetId: string, filePath: string) => Promise<{ ok: boolean; error?: string }>;
+      };
+      templateAnalytics: {
+        scaffoldStats: () => Promise<{ totalScaffolds: number; mostUsedTemplate: { id: string; count: number } | null; avgScaffoldTimeMs: number; perTemplate: Array<{ templateId: string; count: number; successRate: number; avgDurationMs: number }>; usageOverTime: Array<{ day: string; count: number }> }>;
+        record: (entry: { templateId: string; timestamp: number; durationMs: number; success: boolean; options: { useStripe: boolean; install: boolean; gitInit: boolean; uiKit?: string; envPreset?: string; structure?: string } }) => Promise<{ id: string; templateId: string; timestamp: number; durationMs: number; success: boolean }>;
       };
       sync: {
         push: () => Promise<{ ok: boolean; error?: string }>;

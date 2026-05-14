@@ -39,6 +39,9 @@ import * as collab from './collaborators';
 import * as ports from './ports';
 import * as capacitor from './capacitor';
 import * as scaffold from './scaffold';
+import * as templatetest from './templatetest';
+import * as snippets from './snippets';
+import * as templateanalytics from './templateanalytics';
 import * as childprocs from './childprocs';
 import * as envman from './envman';
 import * as timer from './timer';
@@ -162,6 +165,7 @@ function createMainWindow() {
   childprocs.bindBroadcast(() => mainWindow);
   capacitor.bindBroadcast(() => mainWindow);
   scaffold.bindBroadcast(() => mainWindow);
+  templatetest.bindBroadcast(() => mainWindow);
   aigen.bindBroadcast(() => mainWindow);
 }
 
@@ -918,6 +922,42 @@ function registerIpc() {
   });
   ipcMain.handle('template:createTemplate', (_e, args: { id: string; name: string; description: string; duplicateFrom?: string }) => {
     return scaffold.templateCreate(args.id, args.name, args.description, args.duplicateFrom);
+  });
+
+  // Template Testing
+  ipcMain.handle('template:test', async (_e, templateId: string) => {
+    return templatetest.testTemplate(templateId);
+  });
+  ipcMain.handle('template:testAll', async () => {
+    return templatetest.testAllTemplates();
+  });
+
+  // Snippets
+  ipcMain.handle('snippets:list', (_e, filter?: { language?: string; tag?: string; search?: string; projectId?: string }) => {
+    return snippets.listSnippets(filter);
+  });
+  ipcMain.handle('snippets:get', (_e, id: string) => {
+    return snippets.getSnippet(id);
+  });
+  ipcMain.handle('snippets:save', (_e, input: any) => {
+    return snippets.saveSnippet(input);
+  });
+  ipcMain.handle('snippets:delete', (_e, id: string) => {
+    return snippets.deleteSnippet(id);
+  });
+  ipcMain.handle('snippets:generate', async (_e, description: string) => {
+    return snippets.generateSnippet(description);
+  });
+  ipcMain.handle('snippets:insertIntoProject', (_e, args: { snippetId: string; filePath: string }) => {
+    return snippets.insertIntoProject(args.snippetId, args.filePath);
+  });
+
+  // Template Analytics
+  ipcMain.handle('analytics:scaffoldStats', () => {
+    return templateanalytics.getStats();
+  });
+  ipcMain.handle('analytics:record', (_e, entry: any) => {
+    return templateanalytics.recordScaffold(entry);
   });
 
   // Time

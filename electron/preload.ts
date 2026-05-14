@@ -276,6 +276,25 @@ const api = {
     deleteFile: (templateId: string, filePath: string) => ipcRenderer.invoke('template:deleteFile', { templateId, filePath }),
     renameFile: (templateId: string, oldPath: string, newPath: string) => ipcRenderer.invoke('template:renameFile', { templateId, oldPath, newPath }),
     createTemplate: (args: { id: string; name: string; description: string; duplicateFrom?: string }) => ipcRenderer.invoke('template:createTemplate', args),
+    test: (templateId: string) => ipcRenderer.invoke('template:test', templateId),
+    testAll: () => ipcRenderer.invoke('template:testAll'),
+    onTestLog: (cb: (e: { templateId: string; stream: string; line: string; ts: number }) => void) => {
+      const h = (_: unknown, payload: any) => cb(payload);
+      ipcRenderer.on('template:testLog', h);
+      return () => ipcRenderer.removeListener('template:testLog', h);
+    },
+  },
+  snippets: {
+    list: (filter?: { language?: string; tag?: string; search?: string; projectId?: string }) => ipcRenderer.invoke('snippets:list', filter),
+    get: (id: string) => ipcRenderer.invoke('snippets:get', id),
+    save: (input: any) => ipcRenderer.invoke('snippets:save', input),
+    delete: (id: string) => ipcRenderer.invoke('snippets:delete', id),
+    generate: (description: string) => ipcRenderer.invoke('snippets:generate', description),
+    insertIntoProject: (snippetId: string, filePath: string) => ipcRenderer.invoke('snippets:insertIntoProject', { snippetId, filePath }),
+  },
+  templateAnalytics: {
+    scaffoldStats: () => ipcRenderer.invoke('analytics:scaffoldStats'),
+    record: (entry: any) => ipcRenderer.invoke('analytics:record', entry),
   },
   sync: {
     push: () => ipcRenderer.invoke('sync:push'),

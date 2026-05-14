@@ -21,10 +21,13 @@ import Toasts from './components/Toasts';
 import AICodeGen from './components/AICodeGen';
 import ZeroToLive from './components/ZeroToLive';
 import TemplateUpdates from './components/TemplateUpdates';
+import TemplateTest from './components/TemplateTest';
+import TemplateAnalytics from './components/TemplateAnalytics';
+import SnippetLibrary from './components/SnippetLibrary';
 import CloudSync from './components/CloudSync';
 import type { ProjectConfig } from './types';
 
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'zerolive' | 'aigen' | 'templates' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'zerolive' | 'aigen' | 'templates' | 'snippets' | 'chat' | 'settings';
 type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release';
 
 export default function App() {
@@ -123,7 +126,14 @@ export default function App() {
           {tab === 'build' && <BuildCodeView onProjectCreated={() => void loadProjects()} />}
           {tab === 'zerolive' && <ZeroToLive onProjectCreated={() => void loadProjects()} />}
           {tab === 'aigen' && <AICodeGen />}
-          {tab === 'templates' && <TemplateUpdates />}
+          {tab === 'templates' && (
+            <div className="flex flex-col gap-6 overflow-y-auto">
+              <TemplateUpdates />
+              <TemplateTest />
+              <TemplateAnalytics />
+            </div>
+          )}
+          {tab === 'snippets' && <SnippetLibrary />}
           {tab === 'chat' && <ChatView />}
           {tab === 'settings' && <SettingsView />}
         </main>

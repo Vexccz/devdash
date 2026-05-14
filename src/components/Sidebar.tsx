@@ -1,4 +1,4 @@
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'zerolive' | 'aigen' | 'templates' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'zerolive' | 'aigen' | 'templates' | 'snippets' | 'chat' | 'settings';
 
 interface Props {
   tab: Tab;
@@ -20,6 +20,7 @@ export default function Sidebar({ tab, onChange }: Props) {
     { id: 'zerolive', label: 'Zero to Live', icon: <RocketIcon /> },
     { id: 'aigen', label: 'AI Code Gen', icon: <SparkleIcon /> },
     { id: 'templates', label: 'Templates', icon: <LayersIcon /> },
+    { id: 'snippets', label: 'Snippets', icon: <SnippetIcon /> },
     { id: 'chat', label: 'Chat', icon: <ChatIcon /> },
     { id: 'settings', label: 'Settings', icon: <GearIcon /> },
   ];
@@ -193,6 +194,14 @@ function LayersIcon() {
       <path d="M8 2L2 5.5 8 9l6-3.5L8 2z" strokeLinejoin="round" />
       <path d="M2 8l6 3.5L14 8" strokeLinejoin="round" />
       <path d="M2 11l6 3.5 6-3.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SnippetIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M5 4l-3 4 3 4M11 4l3 4-3 4M9 2l-2 12" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

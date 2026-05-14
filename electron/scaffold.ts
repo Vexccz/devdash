@@ -180,6 +180,21 @@ export function listTemplates(): Array<{ id: string; label: string; description:
       label: 'FastAPI + React (Vite)',
       description: 'Python FastAPI backend + React Vite frontend, SQLAlchemy + Alembic, JWT auth, Tailwind CSS.',
     },
+    {
+      id: 'go-gin-react',
+      label: 'Go (Gin) + React (Vite)',
+      description: 'Go backend with Gin framework + GORM + JWT auth + PostgreSQL. React Vite frontend + Tailwind.',
+    },
+    {
+      id: 'rust-actix-react',
+      label: 'Rust (Actix-web) + React (Vite)',
+      description: 'Rust backend with Actix-web + Diesel ORM + JWT + PostgreSQL. React Vite frontend + Tailwind.',
+    },
+    {
+      id: 'django-react',
+      label: 'Django + React (Vite)',
+      description: 'Python Django backend + DRF + SimpleJWT + PostgreSQL. React Vite frontend + Tailwind.',
+    },
   ];
 }
 
@@ -255,6 +270,7 @@ export function isActive(): boolean {
 export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
   if (active) return { ok: false, error: 'Another scaffold is already running.' };
   active = true;
+  const scaffoldStartTime = Date.now();
   try {
     const safeName = opts.projectName.trim();
     if (!safeName || !/^[a-zA-Z0-9-_]+$/.test(safeName)) {
@@ -745,9 +761,49 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
     }
 
     emit('system', `Done. Project at ${targetDir}`);
+
+    // Record analytics
+    try {
+      const analytics = await import('./templateanalytics');
+      analytics.recordScaffold({
+        templateId: opts.customTemplateRepo || opts.template,
+        timestamp: Date.now(),
+        durationMs: Date.now() - scaffoldStartTime,
+        success: true,
+        options: {
+          useStripe: opts.useStripe,
+          install: opts.install,
+          gitInit: opts.gitInit,
+          uiKit: opts.uiKit,
+          envPreset: opts.envPreset,
+          structure: opts.structure,
+        },
+      });
+    } catch { /* non-fatal */ }
+
     return { ok: true, targetDir, githubUrl, vercelUrl, renderUrl, deployProvider, deployId };
   } catch (err) {
     emit('stderr', `Scaffold error: ${(err as Error).message}`);
+
+    // Record analytics for failure
+    try {
+      const analytics = await import('./templateanalytics');
+      analytics.recordScaffold({
+        templateId: opts.customTemplateRepo || opts.template,
+        timestamp: Date.now(),
+        durationMs: Date.now() - scaffoldStartTime,
+        success: false,
+        options: {
+          useStripe: opts.useStripe,
+          install: opts.install,
+          gitInit: opts.gitInit,
+          uiKit: opts.uiKit,
+          envPreset: opts.envPreset,
+          structure: opts.structure,
+        },
+      });
+    } catch { /* non-fatal */ }
+
     return { ok: false, error: (err as Error).message };
   } finally {
     active = false;
