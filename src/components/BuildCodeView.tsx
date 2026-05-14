@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import TemplateMarketplace from './TemplateMarketplace';
+import TemplateCompare from './TemplateCompare';
+import ScaffoldHistory from './ScaffoldHistory';
+import TemplateEditor from './TemplateEditor';
 
 interface Props {
   onProjectCreated: () => void;
@@ -38,6 +41,21 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
   const [marketplaceOpen, setMarketplaceOpen] = useState(false);
   const [uiKit, setUiKit] = useState<'tailwind' | 'shadcn' | 'material' | 'chakra'>('tailwind');
   const [envPreset, setEnvPreset] = useState<'dev' | 'production' | 'indie-saas'>('dev');
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [templateSearch, setTemplateSearch] = useState('');
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [structure, setStructure] = useState<'monorepo' | 'polyrepo'>('monorepo');
+  const [showPolyrepo, setShowPolyrepo] = useState(false);
+  const [autoOpenVSCode, setAutoOpenVSCode] = useState(false);
+  const [postHooks, setPostHooks] = useState<Array<{ label: string; command: string; cwd?: 'root' | 'backend' | 'frontend' }>>([]);
+  const [customHookCmd, setCustomHookCmd] = useState('');
+  const [dryRunOpen, setDryRunOpen] = useState(false);
+  const [dryRunData, setDryRunData] = useState<{ files: Array<{ path: string; content: string }> } | null>(null);
+  const [dryRunLoading, setDryRunLoading] = useState(false);
+  const [dryRunSelectedFile, setDryRunSelectedFile] = useState('');
+  const [readmeGenerating, setReadmeGenerating] = useState(false);
   const logsEnd = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -47,6 +65,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
       if (t[0]) setTemplate(t[0].id);
       const s = await window.devdash.settings.get();
       setSettings(s);
+      setFavorites(s.favoriteTemplates || []);
     })();
     const off = window.devdash.scaffold.onLog((e) => {
       setLogs((cur) => [...cur.slice(-499), { stream: e.stream, line: e.line, ts: e.ts }]);
@@ -62,6 +81,39 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
     const res = await window.devdash.scaffold.pickParent();
     if (res.ok && res.path) setParent(res.path);
   };
+
+  // Template search + favorites sorting
+  const filteredTemplates = useMemo(() => {
+    let list = templates;
+    if (templateSearch.trim()) {
+      const q = templateSearch.toLowerCase();
+      list = list.filter((t) =>
+        t.id.toLowerCase().includes(q) ||
+        t.label.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q)
+      );
+    }
+    // Pin favorites to top
+    const favSet = new Set(favorites);
+    const favs = list.filter((t) => favSet.has(t.id));
+    const rest = list.filter((t) => !favSet.has(t.id));
+    return [...favs, ...rest];
+  }, [templates, templateSearch, favorites]);
+
+  const toggleFavorite = async (templateId: string) => {
+    const updated = await window.devdash.scaffold.toggleFavorite(templateId);
+    setFavorites(updated || []);
+  };
+
+  // Check if template supports polyrepo
+  useEffect(() => {
+    if (template) {
+      void (async () => {
+        const has = await window.devdash.scaffold.hasMultipleFolders(template);
+        setShowPolyrepo(!!has);
+      })();
+    }
+  }, [template]);
 
   const handlePreview = async () => {
     setPreviewLoading(true);
@@ -100,6 +152,9 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
       deployToRender,
       uiKit: template === 'flutter-firebase' ? undefined : uiKit,
       envPreset: template === 'flutter-firebase' ? undefined : envPreset,
+      postHooks: postHooks.length > 0 ? postHooks : undefined,
+      structure: showPolyrepo ? structure : undefined,
+      autoOpenVSCode,
     });
     setBusy(false);
     setResult(res);
@@ -108,6 +163,90 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
 
   const hasVercelToken = !!settings.vercelToken;
   const hasRenderToken = !!settings.renderToken;
+
+  const handleDryRun = async () => {
+    setDryRunLoading(true);
+    setDryRunOpen(true);
+    setDryRunData(null);
+    setDryRunSelectedFile('');
+    const res = await window.devdash.scaffold.dryRun({
+      projectName: name.trim(),
+      displayName: displayName.trim() || name.trim(),
+      targetParentDir: parent || 'C:\\tmp',
+      template,
+      useStripe,
+      install: false,
+      gitInit: false,
+      uiKit: template === 'flutter-firebase' ? undefined : uiKit,
+      envPreset: template === 'flutter-firebase' ? undefined : envPreset,
+    });
+    if (res.ok) {
+      setDryRunData({ files: res.files });
+    }
+    setDryRunLoading(false);
+  };
+
+  const handleGenerateReadme = async () => {
+    if (!result?.targetDir) return;
+    setReadmeGenerating(true);
+    const res = await window.devdash.scaffold.generateReadme(result.targetDir, {
+      projectName: name.trim(),
+      displayName: displayName.trim() || name.trim(),
+      targetParentDir: parent,
+      template,
+      useStripe,
+      install,
+      gitInit,
+      uiKit,
+      envPreset,
+      deployToVercel,
+      deployToRender,
+    });
+    setReadmeGenerating(false);
+    if (res.ok) {
+      setLogs((cur) => [...cur, { stream: 'system', line: 'README.md generated successfully.', ts: Date.now() }]);
+    } else {
+      setLogs((cur) => [...cur, { stream: 'stderr', line: `README generation failed: ${res.error}`, ts: Date.now() }]);
+    }
+  };
+
+  const handleReScaffold = (entry: any) => {
+    setName(entry.projectName);
+    setTemplate(entry.template);
+    if (entry.options) {
+      setUseStripe(entry.options.useStripe ?? true);
+      setInstall(entry.options.install ?? true);
+      setGitInit(entry.options.gitInit ?? true);
+      setGitHubPush(entry.options.gitHubPush ?? false);
+      if (entry.options.uiKit) setUiKit(entry.options.uiKit);
+      if (entry.options.envPreset) setEnvPreset(entry.options.envPreset);
+      if (entry.options.structure) setStructure(entry.options.structure);
+      setAutoOpenVSCode(entry.options.autoOpenVSCode ?? false);
+    }
+    setHistoryOpen(false);
+  };
+
+  const predefinedHooks = [
+    { label: 'Run migrations', command: 'npx prisma migrate dev', cwd: 'backend' as const },
+    { label: 'Seed database', command: 'npm run seed', cwd: 'backend' as const },
+    { label: 'Setup Prisma', command: 'npx prisma generate', cwd: 'backend' as const },
+    { label: 'Install Husky', command: 'npx husky install', cwd: 'root' as const },
+  ];
+
+  const toggleHook = (hook: { label: string; command: string; cwd?: 'root' | 'backend' | 'frontend' }) => {
+    const exists = postHooks.find((h) => h.label === hook.label);
+    if (exists) {
+      setPostHooks(postHooks.filter((h) => h.label !== hook.label));
+    } else {
+      setPostHooks([...postHooks, hook]);
+    }
+  };
+
+  const addCustomHook = () => {
+    if (!customHookCmd.trim()) return;
+    setPostHooks([...postHooks, { label: customHookCmd.trim(), command: customHookCmd.trim(), cwd: 'root' }]);
+    setCustomHookCmd('');
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -118,7 +257,26 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
             Scaffold a production-ready SaaS in one click. Auth, payments, admin, emails wired up.
           </p>
         </div>
+        <div className="flex gap-2">
+          <button onClick={() => setCompareOpen(true)} className="btn-soft text-[10px]">Compare</button>
+          <button onClick={() => setHistoryOpen(!historyOpen)} className="btn-soft text-[10px]">{historyOpen ? 'Hide History' : 'History'}</button>
+          <button onClick={() => setEditorOpen(!editorOpen)} className="btn-soft text-[10px]">{editorOpen ? 'Hide Editor' : 'Editor'}</button>
+        </div>
       </div>
+
+      {/* History panel */}
+      {historyOpen && (
+        <div className="mb-4 rounded-lg border border-dash-line bg-dash-card p-4">
+          <ScaffoldHistory onReScaffold={handleReScaffold} />
+        </div>
+      )}
+
+      {/* Template Editor panel */}
+      {editorOpen && (
+        <div className="mb-4 rounded-lg border border-dash-line bg-dash-card p-4" style={{ height: '400px' }}>
+          <TemplateEditor templates={templates} />
+        </div>
+      )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-2">
         <section className="card flex flex-col gap-3 overflow-y-auto p-4">
@@ -163,6 +321,12 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
 
           <div>
             <label className="text-[10px] uppercase tracking-wider text-dash-mute">Template</label>
+            <input
+              value={templateSearch}
+              onChange={(e) => setTemplateSearch(e.target.value)}
+              placeholder="Search templates..."
+              className="mt-1 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1 text-xs text-dash-text"
+            />
             <div className="mt-1 flex gap-2">
               <select
                 value={template}
@@ -170,10 +334,18 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                 disabled={useCustomTemplate}
                 className="flex-1 rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 text-xs text-dash-text disabled:opacity-50"
               >
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.label}</option>
+                {filteredTemplates.map((t) => (
+                  <option key={t.id} value={t.id}>{favorites.includes(t.id) ? '★ ' : ''}{t.label}</option>
                 ))}
               </select>
+              <button
+                onClick={() => toggleFavorite(template)}
+                disabled={useCustomTemplate}
+                className="btn-soft text-[10px] disabled:opacity-40"
+                title={favorites.includes(template) ? 'Unfavorite' : 'Favorite'}
+              >
+                {favorites.includes(template) ? '★' : '☆'}
+              </button>
               <button
                 onClick={handlePreview}
                 disabled={useCustomTemplate}
@@ -181,6 +353,14 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                 title="Preview template file tree"
               >
                 Preview
+              </button>
+              <button
+                onClick={handleDryRun}
+                disabled={useCustomTemplate || !name.trim()}
+                className="btn-soft text-[10px] disabled:opacity-40"
+                title="Dry run with replacements applied"
+              >
+                Dry Run
               </button>
             </div>
             <p className="mt-1 text-[10px] text-dash-mute">
@@ -346,6 +526,64 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
               Deploy to Render
               {!hasRenderToken && <span className="text-[10px] text-dash-mute">(no token)</span>}
             </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={autoOpenVSCode} onChange={(e) => setAutoOpenVSCode(e.target.checked)} />
+              Auto-open in VS Code after scaffold
+            </label>
+          </div>
+
+          {/* Multi-project Structure */}
+          {showPolyrepo && (
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-dash-mute">Project Structure</label>
+              <div className="mt-1 flex gap-3">
+                <label className="flex items-center gap-2 text-xs text-dash-text">
+                  <input type="radio" name="structure" value="monorepo" checked={structure === 'monorepo'} onChange={() => setStructure('monorepo')} />
+                  Monorepo (single folder)
+                </label>
+                <label className="flex items-center gap-2 text-xs text-dash-text">
+                  <input type="radio" name="structure" value="polyrepo" checked={structure === 'polyrepo'} onChange={() => setStructure('polyrepo')} />
+                  Polyrepo (separate repos)
+                </label>
+              </div>
+              {structure === 'polyrepo' && (
+                <p className="mt-1 text-[10px] text-dash-mute">Creates {name}-frontend and {name}-backend as separate folders with own git init.</p>
+              )}
+            </div>
+          )}
+
+          {/* Post-scaffold Hooks */}
+          <div>
+            <label className="text-[10px] uppercase tracking-wider text-dash-mute">Post-scaffold Hooks</label>
+            <div className="mt-1 flex flex-col gap-1">
+              {predefinedHooks.map((hook) => (
+                <label key={hook.label} className="flex items-center gap-2 text-xs text-dash-text">
+                  <input
+                    type="checkbox"
+                    checked={postHooks.some((h) => h.label === hook.label)}
+                    onChange={() => toggleHook(hook)}
+                  />
+                  {hook.label}
+                  <span className="text-[10px] text-dash-mute font-mono">{hook.command}</span>
+                </label>
+              ))}
+              <div className="flex gap-1 mt-1">
+                <input
+                  value={customHookCmd}
+                  onChange={(e) => setCustomHookCmd(e.target.value)}
+                  placeholder="Custom command..."
+                  className="flex-1 rounded-md border border-dash-line bg-dash-bg px-2 py-1 font-mono text-[10px] text-dash-text"
+                  onKeyDown={(e) => e.key === 'Enter' && addCustomHook()}
+                />
+                <button onClick={addCustomHook} className="btn-soft text-[10px]">Add</button>
+              </div>
+              {postHooks.filter((h) => !predefinedHooks.some((p) => p.label === h.label)).map((h, i) => (
+                <div key={i} className="flex items-center gap-2 text-[10px] text-dash-text ml-4">
+                  <span className="font-mono">{h.command}</span>
+                  <button onClick={() => setPostHooks(postHooks.filter((ph) => ph !== h))} className="text-red-400 hover:text-red-300">×</button>
+                </div>
+              ))}
+            </div>
           </div>
 
           <button
@@ -408,6 +646,13 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                     onClick={() => result.targetDir && window.devdash.projects.openInVSCode(result.targetDir)}
                   >
                     Open in VS Code
+                  </button>
+                  <button
+                    className="btn-soft text-[10px]"
+                    disabled={readmeGenerating}
+                    onClick={handleGenerateReadme}
+                  >
+                    {readmeGenerating ? 'Generating...' : '📝 Generate README'}
                   </button>
                 </div>
               ) : (
@@ -478,6 +723,66 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                 </>
               ) : (
                 <p className="text-xs text-red-400">Template not found.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Template Compare Modal */}
+      {compareOpen && (
+        <TemplateCompare templates={templates} onClose={() => setCompareOpen(false)} />
+      )}
+
+      {/* Dry Run Modal */}
+      {dryRunOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDryRunOpen(false)}>
+          <div className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-xl border border-dash-line bg-dash-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-dash-line px-4 py-3">
+              <h3 className="text-sm font-semibold text-dash-text">Dry Run Preview</h3>
+              <button onClick={() => setDryRunOpen(false)} className="text-dash-mute hover:text-dash-text text-lg leading-none">&times;</button>
+            </div>
+            <div className="flex" style={{ height: 'calc(80vh - 60px)' }}>
+              {dryRunLoading ? (
+                <div className="flex items-center justify-center w-full">
+                  <p className="text-xs text-dash-mute">Running dry run...</p>
+                </div>
+              ) : dryRunData ? (
+                <>
+                  {/* File tree */}
+                  <div className="w-56 flex-shrink-0 overflow-y-auto border-r border-dash-line p-2">
+                    <p className="text-[10px] text-dash-mute mb-2">{dryRunData.files.length} files</p>
+                    {dryRunData.files.map((f, i) => (
+                      <div
+                        key={i}
+                        onClick={() => setDryRunSelectedFile(f.path)}
+                        className={`cursor-pointer truncate rounded px-1.5 py-0.5 font-mono text-[10px] ${
+                          dryRunSelectedFile === f.path ? 'bg-dash-accent/20 text-dash-accent' : 'text-dash-text hover:bg-dash-line/50'
+                        }`}
+                        title={f.path}
+                      >
+                        {f.path}
+                      </div>
+                    ))}
+                  </div>
+                  {/* File content */}
+                  <div className="flex-1 overflow-y-auto p-3">
+                    {dryRunSelectedFile ? (
+                      <>
+                        <p className="text-[10px] font-mono text-dash-mute mb-2">{dryRunSelectedFile}</p>
+                        <pre className="whitespace-pre-wrap font-mono text-[10px] text-dash-text">
+                          {dryRunData.files.find((f) => f.path === dryRunSelectedFile)?.content || ''}
+                        </pre>
+                      </>
+                    ) : (
+                      <p className="text-xs text-dash-mute">Click a file to view its content with all replacements applied.</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center w-full">
+                  <p className="text-xs text-red-400">Dry run failed or not supported for this template.</p>
+                </div>
               )}
             </div>
           </div>

@@ -51,6 +51,7 @@ export interface AppConfig {
     supabaseUrl?: string;
     supabaseAnonKey?: string;
     syncEnabled?: boolean;
+    favoriteTemplates?: string[];
   };
 }
 
@@ -81,6 +82,7 @@ const DEFAULT_CONFIG: AppConfig = {
     supabaseUrl: '',
     supabaseAnonKey: '',
     syncEnabled: false,
+    favoriteTemplates: [],
   },
 };
 

@@ -821,7 +821,9 @@ function registerIpc() {
     return { ok: true, path: res.filePaths[0] };
   });
   ipcMain.handle('scaffold:run', async (_e, opts: scaffold.ScaffoldOptions) => {
+    const startTime = Date.now();
     const result = await scaffold.scaffold(opts);
+    const durationMs = Date.now() - startTime;
     if (result.ok && result.targetDir) {
       try {
         addProject({
@@ -835,8 +837,87 @@ function registerIpc() {
         // not fatal; just log
         console.error('auto-add scaffold project failed:', err);
       }
+      // Record scaffold history
+      try {
+        const scaffoldHistory = await import('./scaffoldhistory');
+        let deployStatus: 'none' | 'vercel' | 'render' | 'both' = 'none';
+        if (result.vercelUrl && result.renderUrl) deployStatus = 'both';
+        else if (result.vercelUrl) deployStatus = 'vercel';
+        else if (result.renderUrl) deployStatus = 'render';
+        scaffoldHistory.addHistoryEntry({
+          date: new Date().toISOString(),
+          template: opts.customTemplateRepo || opts.template,
+          projectName: opts.projectName,
+          targetDir: result.targetDir,
+          deployStatus,
+          durationMs,
+          options: {
+            useStripe: opts.useStripe,
+            install: opts.install,
+            gitInit: opts.gitInit,
+            gitHubPush: !!opts.gitHubPush,
+            uiKit: opts.uiKit,
+            envPreset: opts.envPreset,
+            structure: opts.structure,
+            postHooks: opts.postHooks?.map((h) => h.label),
+            autoOpenVSCode: opts.autoOpenVSCode,
+          },
+        });
+      } catch (err) {
+        console.error('scaffold history save failed:', err);
+      }
     }
     return result;
+  });
+  ipcMain.handle('scaffold:compareTemplates', (_e, args: { idA: string; idB: string }) => {
+    return scaffold.compareTemplates(args.idA, args.idB);
+  });
+  ipcMain.handle('scaffold:dryRun', async (_e, opts: scaffold.ScaffoldOptions) => {
+    return scaffold.dryRun(opts);
+  });
+  ipcMain.handle('scaffold:generateReadme', async (_e, args: { projectPath: string; options: scaffold.ScaffoldOptions }) => {
+    return scaffold.generateReadme(args.projectPath, args.options);
+  });
+  ipcMain.handle('scaffold:history', async () => {
+    const scaffoldHistory = await import('./scaffoldhistory');
+    return scaffoldHistory.getHistory();
+  });
+  ipcMain.handle('scaffold:clearHistory', async () => {
+    const scaffoldHistory = await import('./scaffoldhistory');
+    scaffoldHistory.clearHistory();
+    return { ok: true };
+  });
+  ipcMain.handle('scaffold:toggleFavorite', (_e, templateId: string) => {
+    const cfg = loadConfig();
+    const favs = cfg.settings.favoriteTemplates || [];
+    const idx = favs.indexOf(templateId);
+    if (idx >= 0) {
+      favs.splice(idx, 1);
+    } else {
+      favs.push(templateId);
+    }
+    const updated = updateSettings({ favoriteTemplates: favs });
+    return updated.settings.favoriteTemplates;
+  });
+  ipcMain.handle('scaffold:hasMultipleFolders', (_e, templateId: string) => {
+    return scaffold.hasMultipleFolders(templateId);
+  });
+  // Template editor
+  ipcMain.handle('template:listFiles', (_e, templateId: string) => scaffold.templateListFiles(templateId));
+  ipcMain.handle('template:readFile', (_e, args: { templateId: string; filePath: string }) => {
+    return scaffold.templateReadFile(args.templateId, args.filePath);
+  });
+  ipcMain.handle('template:writeFile', (_e, args: { templateId: string; filePath: string; content: string }) => {
+    return scaffold.templateWriteFile(args.templateId, args.filePath, args.content);
+  });
+  ipcMain.handle('template:deleteFile', (_e, args: { templateId: string; filePath: string }) => {
+    return scaffold.templateDeleteFile(args.templateId, args.filePath);
+  });
+  ipcMain.handle('template:renameFile', (_e, args: { templateId: string; oldPath: string; newPath: string }) => {
+    return scaffold.templateRenameFile(args.templateId, args.oldPath, args.newPath);
+  });
+  ipcMain.handle('template:createTemplate', (_e, args: { id: string; name: string; description: string; duplicateFrom?: string }) => {
+    return scaffold.templateCreate(args.id, args.name, args.description, args.duplicateFrom);
   });
 
   // Time

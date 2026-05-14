@@ -128,8 +128,18 @@ const api = {
       deployToRender?: boolean;
       uiKit?: 'tailwind' | 'shadcn' | 'material' | 'chakra';
       envPreset?: 'dev' | 'production' | 'indie-saas';
+      postHooks?: Array<{ label: string; command: string; cwd?: 'root' | 'backend' | 'frontend' }>;
+      structure?: 'monorepo' | 'polyrepo';
+      autoOpenVSCode?: boolean;
     }) => ipcRenderer.invoke('scaffold:run', opts),
     isActive: () => ipcRenderer.invoke('scaffold:isActive'),
+    compareTemplates: (idA: string, idB: string) => ipcRenderer.invoke('scaffold:compareTemplates', { idA, idB }),
+    dryRun: (opts: any) => ipcRenderer.invoke('scaffold:dryRun', opts),
+    generateReadme: (projectPath: string, options: any) => ipcRenderer.invoke('scaffold:generateReadme', { projectPath, options }),
+    history: () => ipcRenderer.invoke('scaffold:history'),
+    clearHistory: () => ipcRenderer.invoke('scaffold:clearHistory'),
+    toggleFavorite: (templateId: string) => ipcRenderer.invoke('scaffold:toggleFavorite', templateId),
+    hasMultipleFolders: (templateId: string) => ipcRenderer.invoke('scaffold:hasMultipleFolders', templateId),
     onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => {
       const h = (_: unknown, payload: any) => cb(payload);
       ipcRenderer.on('scaffold:log', h);
@@ -260,6 +270,12 @@ const api = {
     checkUpdates: () => ipcRenderer.invoke('template:checkUpdates'),
     viewDiff: (projectId: string) => ipcRenderer.invoke('template:viewDiff', projectId),
     applyUpdate: (projectId: string) => ipcRenderer.invoke('template:applyUpdate', projectId),
+    listFiles: (templateId: string) => ipcRenderer.invoke('template:listFiles', templateId),
+    readFile: (templateId: string, filePath: string) => ipcRenderer.invoke('template:readFile', { templateId, filePath }),
+    writeFile: (templateId: string, filePath: string, content: string) => ipcRenderer.invoke('template:writeFile', { templateId, filePath, content }),
+    deleteFile: (templateId: string, filePath: string) => ipcRenderer.invoke('template:deleteFile', { templateId, filePath }),
+    renameFile: (templateId: string, oldPath: string, newPath: string) => ipcRenderer.invoke('template:renameFile', { templateId, oldPath, newPath }),
+    createTemplate: (args: { id: string; name: string; description: string; duplicateFrom?: string }) => ipcRenderer.invoke('template:createTemplate', args),
   },
   sync: {
     push: () => ipcRenderer.invoke('sync:push'),

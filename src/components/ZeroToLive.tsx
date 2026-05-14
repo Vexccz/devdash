@@ -26,6 +26,7 @@ export default function ZeroToLive({ onProjectCreated }: { onProjectCreated: () 
   // Step 3: Env
   const [envFromSettings, setEnvFromSettings] = useState(true);
   const [envPreset, setEnvPreset] = useState<'dev' | 'production' | 'indie-saas'>('dev');
+  const [autoOpenVSCode, setAutoOpenVSCode] = useState(false);
 
   // Step 4: Launch
   const [launching, setLaunching] = useState(false);
@@ -87,6 +88,7 @@ export default function ZeroToLive({ onProjectCreated }: { onProjectCreated: () 
       deployToRender: deployRender,
       uiKit,
       envPreset,
+      autoOpenVSCode,
     });
 
     // Update pipeline based on result
@@ -231,6 +233,10 @@ export default function ZeroToLive({ onProjectCreated }: { onProjectCreated: () 
               <option value="indie-saas">Indie SaaS</option>
             </select>
           </div>
+          <label className="flex items-center gap-2 text-xs text-dash-text">
+            <input type="checkbox" checked={autoOpenVSCode} onChange={(e) => setAutoOpenVSCode(e.target.checked)} className="accent-dash-indigo" />
+            Auto-open in VS Code after scaffold
+          </label>
         </div>
       )}
 

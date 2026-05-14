@@ -24,6 +24,9 @@ export interface ScaffoldOptions {
   deployToRender?: boolean;
   uiKit?: 'tailwind' | 'shadcn' | 'material' | 'chakra';
   envPreset?: 'dev' | 'production' | 'indie-saas';
+  postHooks?: Array<{ label: string; command: string; cwd?: 'root' | 'backend' | 'frontend' }>;
+  structure?: 'monorepo' | 'polyrepo';
+  autoOpenVSCode?: boolean;
 }
 
 export interface ScaffoldResult {
@@ -713,6 +716,34 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
       }
     }
 
+    // Post-scaffold hooks
+    if (opts.postHooks && opts.postHooks.length > 0) {
+      emit('system', `Running ${opts.postHooks.length} post-scaffold hook(s)...`);
+      for (const hook of opts.postHooks) {
+        let hookCwd = targetDir;
+        if (hook.cwd === 'backend' && fs.existsSync(path.join(targetDir, 'backend'))) {
+          hookCwd = path.join(targetDir, 'backend');
+        } else if (hook.cwd === 'frontend' && fs.existsSync(path.join(targetDir, 'frontend'))) {
+          hookCwd = path.join(targetDir, 'frontend');
+        }
+        emit('system', `Hook: ${hook.label} → ${hook.command}`);
+        const hookCode = await runStreamed(hook.command, [], hookCwd, 5 * 60 * 1000);
+        if (hookCode !== 0) {
+          emit('stderr', `Hook "${hook.label}" exited with code ${hookCode}. Continuing.`);
+        }
+      }
+    }
+
+    // Auto-open in VS Code
+    if (opts.autoOpenVSCode) {
+      emit('system', 'Opening project in VS Code...');
+      try {
+        spawn('code', [targetDir], { shell: true, detached: true, stdio: 'ignore' }).unref();
+      } catch (err) {
+        emit('stderr', `VS Code open failed: ${(err as Error).message}`);
+      }
+    }
+
     emit('system', `Done. Project at ${targetDir}`);
     return { ok: true, targetDir, githubUrl, vercelUrl, renderUrl, deployProvider, deployId };
   } catch (err) {
@@ -721,4 +752,311 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
   } finally {
     active = false;
   }
+}
+
+// --- Template Comparison ---
+export interface TemplateComparison {
+  templateA: { id: string; files: string[]; fileCount: number; lineCount: number };
+  templateB: { id: string; files: string[]; fileCount: number; lineCount: number };
+  onlyInA: string[];
+  onlyInB: string[];
+  common: string[];
+}
+
+export function compareTemplates(idA: string, idB: string): TemplateComparison | { error: string } {
+  const tplRoot = templatesRoot();
+  const dirA = path.join(tplRoot, idA);
+  const dirB = path.join(tplRoot, idB);
+  if (!fs.existsSync(dirA)) return { error: `Template "${idA}" not found.` };
+  if (!fs.existsSync(dirB)) return { error: `Template "${idB}" not found.` };
+
+  function walkTemplate(dir: string): { files: string[]; lineCount: number } {
+    const files: string[] = [];
+    let lineCount = 0;
+    function walk(d: string, prefix: string) {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          walk(path.join(d, entry.name), rel);
+        } else {
+          files.push(rel);
+          try {
+            const buf = fs.readFileSync(path.join(d, entry.name));
+            if (!buf.includes(0)) lineCount += buf.toString('utf-8').split('\n').length;
+          } catch { /* skip */ }
+        }
+      }
+    }
+    walk(dir, '');
+    return { files, lineCount };
+  }
+
+  const a = walkTemplate(dirA);
+  const b = walkTemplate(dirB);
+  const setA = new Set(a.files);
+  const setB = new Set(b.files);
+  const onlyInA = a.files.filter((f) => !setB.has(f));
+  const onlyInB = b.files.filter((f) => !setA.has(f));
+  const common = a.files.filter((f) => setB.has(f));
+
+  return {
+    templateA: { id: idA, files: a.files, fileCount: a.files.length, lineCount: a.lineCount },
+    templateB: { id: idB, files: b.files, fileCount: b.files.length, lineCount: b.lineCount },
+    onlyInA,
+    onlyInB,
+    common,
+  };
+}
+
+// --- Scaffold Dry-Run ---
+export interface DryRunResult {
+  ok: boolean;
+  files: Array<{ path: string; content: string }>;
+  error?: string;
+}
+
+export async function dryRun(opts: ScaffoldOptions): Promise<DryRunResult> {
+  const safeName = opts.projectName.trim();
+  if (!safeName || !/^[a-zA-Z0-9-_]+$/.test(safeName)) {
+    return { ok: false, files: [], error: 'Invalid project name.' };
+  }
+
+  const tmpDir = path.join(os.tmpdir(), `devdash-dryrun-${Date.now()}`);
+  try {
+    fs.mkdirSync(tmpDir, { recursive: true });
+
+    const replacements: Record<string, string> = {
+      PROJECT_NAME: safeName,
+      PROJECT_SLUG: safeName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''),
+      DISPLAY_NAME: opts.displayName || safeName,
+      JWT_SECRET: crypto.randomBytes(32).toString('hex'),
+      STRIPE_KEY_HINT: opts.useStripe ? 'sk_test_replace_me' : 'disabled',
+    };
+
+    if (opts.customTemplateRepo) {
+      return { ok: false, files: [], error: 'Dry run not supported for custom templates.' };
+    }
+
+    const tplRoot = templatesRoot();
+    const tplDir = path.join(tplRoot, opts.template);
+    if (!fs.existsSync(tplDir)) {
+      return { ok: false, files: [], error: `Template "${opts.template}" not found.` };
+    }
+
+    copyDir(tplDir, tmpDir, replacements);
+
+    // Read all files from tmpDir
+    const files: Array<{ path: string; content: string }> = [];
+    function readAll(dir: string, prefix: string) {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          readAll(full, rel);
+        } else {
+          try {
+            const buf = fs.readFileSync(full);
+            if (!buf.includes(0)) {
+              files.push({ path: rel, content: buf.toString('utf-8') });
+            } else {
+              files.push({ path: rel, content: '[binary file]' });
+            }
+          } catch {
+            files.push({ path: rel, content: '[unreadable]' });
+          }
+        }
+      }
+    }
+    readAll(tmpDir, '');
+
+    return { ok: true, files };
+  } catch (err) {
+    return { ok: false, files: [], error: (err as Error).message };
+  } finally {
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+  }
+}
+
+// --- README Auto-generate ---
+export interface ReadmeResult {
+  ok: boolean;
+  content?: string;
+  error?: string;
+}
+
+export async function generateReadme(projectPath: string, opts: ScaffoldOptions): Promise<ReadmeResult> {
+  const cfg = loadConfig();
+  const { ollamaBaseUrl, ollamaApiKey, ollamaDefaultModel } = cfg.settings;
+
+  if (!ollamaDefaultModel) {
+    return { ok: false, error: 'No AI model configured. Set ollamaDefaultModel in settings.' };
+  }
+
+  const prompt = `Generate a professional README.md for a project with these details:
+- Project name: ${opts.displayName || opts.projectName}
+- Template: ${opts.template}
+- UI Kit: ${opts.uiKit || 'tailwind'}
+- Environment preset: ${opts.envPreset || 'dev'}
+- Stripe: ${opts.useStripe ? 'enabled' : 'disabled'}
+- Deploy targets: ${[opts.deployToVercel ? 'Vercel' : '', opts.deployToRender ? 'Render' : ''].filter(Boolean).join(', ') || 'none'}
+
+Include: project description, tech stack, getting started (install, env setup, run dev), folder structure overview, deployment instructions, and license (MIT). Use markdown formatting. Output ONLY the README content, no wrapping.`;
+
+  const baseUrl = (ollamaBaseUrl || 'http://localhost:11434').replace(/\/$/, '');
+  const isOllama = baseUrl.includes('11434');
+  const endpoint = isOllama ? `${baseUrl}/api/chat` : `${baseUrl}/v1/chat/completions`;
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (ollamaApiKey) headers['Authorization'] = `Bearer ${ollamaApiKey}`;
+
+  let body: any;
+  if (isOllama) {
+    body = { model: ollamaDefaultModel, messages: [{ role: 'user', content: prompt }], stream: false };
+  } else {
+    body = { model: ollamaDefaultModel, messages: [{ role: 'user', content: prompt }], temperature: 0.7 };
+  }
+
+  try {
+    const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      return { ok: false, error: `API error ${res.status}: ${errText.slice(0, 200)}` };
+    }
+    const data = await res.json() as any;
+    let content = '';
+    if (isOllama) {
+      content = data?.message?.content || '';
+    } else {
+      content = data?.choices?.[0]?.message?.content || '';
+    }
+    if (!content.trim()) {
+      return { ok: false, error: 'AI returned empty response.' };
+    }
+    // Write to project
+    const readmePath = path.join(projectPath, 'README.md');
+    fs.writeFileSync(readmePath, content, 'utf-8');
+    return { ok: true, content };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+// --- Template Editor helpers ---
+export function templateListFiles(templateId: string): { files: string[] } | { error: string } {
+  const tplRoot = templatesRoot();
+  const tplDir = path.join(tplRoot, templateId);
+  if (!fs.existsSync(tplDir)) return { error: `Template "${templateId}" not found.` };
+  const files: string[] = [];
+  function walk(dir: string, prefix: string) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(path.join(dir, entry.name), rel);
+      } else {
+        files.push(rel);
+      }
+    }
+  }
+  walk(tplDir, '');
+  return { files };
+}
+
+export function templateReadFile(templateId: string, filePath: string): { content: string } | { error: string } {
+  const tplRoot = templatesRoot();
+  const full = path.join(tplRoot, templateId, filePath);
+  const resolved = path.resolve(full);
+  // Safety: ensure within template dir
+  if (!resolved.startsWith(path.resolve(path.join(tplRoot, templateId)))) {
+    return { error: 'Path traversal not allowed.' };
+  }
+  if (!fs.existsSync(resolved)) return { error: 'File not found.' };
+  try {
+    const buf = fs.readFileSync(resolved);
+    if (buf.includes(0)) return { error: 'Binary file cannot be read as text.' };
+    return { content: buf.toString('utf-8') };
+  } catch (err) {
+    return { error: (err as Error).message };
+  }
+}
+
+export function templateWriteFile(templateId: string, filePath: string, content: string): { ok: boolean; error?: string } {
+  const tplRoot = templatesRoot();
+  const full = path.join(tplRoot, templateId, filePath);
+  const resolved = path.resolve(full);
+  if (!resolved.startsWith(path.resolve(path.join(tplRoot, templateId)))) {
+    return { ok: false, error: 'Path traversal not allowed.' };
+  }
+  try {
+    const dir = path.dirname(resolved);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(resolved, content, 'utf-8');
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+export function templateDeleteFile(templateId: string, filePath: string): { ok: boolean; error?: string } {
+  const tplRoot = templatesRoot();
+  const full = path.join(tplRoot, templateId, filePath);
+  const resolved = path.resolve(full);
+  if (!resolved.startsWith(path.resolve(path.join(tplRoot, templateId)))) {
+    return { ok: false, error: 'Path traversal not allowed.' };
+  }
+  if (!fs.existsSync(resolved)) return { ok: false, error: 'File not found.' };
+  try {
+    fs.unlinkSync(resolved);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+export function templateRenameFile(templateId: string, oldPath: string, newPath: string): { ok: boolean; error?: string } {
+  const tplRoot = templatesRoot();
+  const resolvedOld = path.resolve(path.join(tplRoot, templateId, oldPath));
+  const resolvedNew = path.resolve(path.join(tplRoot, templateId, newPath));
+  const base = path.resolve(path.join(tplRoot, templateId));
+  if (!resolvedOld.startsWith(base) || !resolvedNew.startsWith(base)) {
+    return { ok: false, error: 'Path traversal not allowed.' };
+  }
+  if (!fs.existsSync(resolvedOld)) return { ok: false, error: 'Source file not found.' };
+  try {
+    const dir = path.dirname(resolvedNew);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.renameSync(resolvedOld, resolvedNew);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+export function templateCreate(id: string, name: string, description: string, duplicateFrom?: string): { ok: boolean; error?: string } {
+  const tplRoot = templatesRoot();
+  const newDir = path.join(tplRoot, id);
+  if (fs.existsSync(newDir)) return { ok: false, error: 'Template ID already exists.' };
+  try {
+    if (duplicateFrom) {
+      const srcDir = path.join(tplRoot, duplicateFrom);
+      if (!fs.existsSync(srcDir)) return { ok: false, error: `Source template "${duplicateFrom}" not found.` };
+      copyDir(srcDir, newDir, {});
+    } else {
+      fs.mkdirSync(newDir, { recursive: true });
+      fs.writeFileSync(path.join(newDir, 'README.md'), `# ${name}\n\n${description}\n`, 'utf-8');
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+// --- Polyrepo scaffold helper ---
+export function hasMultipleFolders(templateId: string): boolean {
+  const tplRoot = templatesRoot();
+  const tplDir = path.join(tplRoot, templateId);
+  if (!fs.existsSync(tplDir)) return false;
+  const entries = fs.readdirSync(tplDir, { withFileTypes: true });
+  const hasFrontend = entries.some((e) => e.isDirectory() && e.name === 'frontend');
+  const hasBackend = entries.some((e) => e.isDirectory() && e.name === 'backend');
+  return hasFrontend && hasBackend;
 }

@@ -122,6 +122,7 @@ export interface AppSettings {
   supabaseUrl?: string;
   supabaseAnonKey?: string;
   syncEnabled?: boolean;
+  favoriteTemplates?: string[];
 }
 
 export interface Toast {
@@ -642,9 +643,30 @@ declare global {
           deployToRender?: boolean;
           uiKit?: 'tailwind' | 'shadcn' | 'material' | 'chakra';
           envPreset?: 'dev' | 'production' | 'indie-saas';
+          postHooks?: Array<{ label: string; command: string; cwd?: 'root' | 'backend' | 'frontend' }>;
+          structure?: 'monorepo' | 'polyrepo';
+          autoOpenVSCode?: boolean;
         }) => Promise<{ ok: boolean; targetDir?: string; error?: string; githubUrl?: string; vercelUrl?: string; renderUrl?: string; deployProvider?: string; deployId?: string }>;
         isActive: () => Promise<boolean>;
         onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => () => void;
+        toggleFavorite: (templateId: string) => Promise<string[]>;
+        hasMultipleFolders: (templateId: string) => Promise<boolean>;
+        dryRun: (opts: {
+          projectName: string;
+          targetParentDir: string;
+          template: string;
+          displayName: string;
+          useStripe: boolean;
+          install?: boolean;
+          gitInit?: boolean;
+          uiKit?: 'tailwind' | 'shadcn' | 'material' | 'chakra';
+          envPreset?: 'dev' | 'production' | 'indie-saas';
+          envFromSettings?: boolean;
+        }) => Promise<{ ok: boolean; files: Array<{ path: string; content: string }>; error?: string }>;
+        generateReadme: (projectPath: string, opts: { projectName: string; displayName: string; targetParentDir: string; template: string; useStripe: boolean; install: boolean; gitInit: boolean; uiKit?: string; envPreset?: string; deployToVercel?: boolean; deployToRender?: boolean }) => Promise<{ ok: boolean; content?: string; error?: string }>;
+        history: () => Promise<Array<{ id: string; date: string; template: string; projectName: string; targetDir: string; deployStatus: 'none' | 'vercel' | 'render' | 'both'; durationMs: number; options: { useStripe: boolean; install: boolean; gitInit: boolean; gitHubPush: boolean; uiKit?: string; envPreset?: string; structure?: string; postHooks?: string[]; autoOpenVSCode?: boolean } }>>;
+        clearHistory: () => Promise<{ ok: boolean }>;
+        compareTemplates: (a: string, b: string) => Promise<{ templateA: { id: string; files: string[]; fileCount: number; lineCount: number }; templateB: { id: string; files: string[]; fileCount: number; lineCount: number }; onlyInA: string[]; onlyInB: string[]; common: string[] } | { error: string }>;
       };
       time: {
         enter: (id: string) => Promise<{ projectId: string; startedAt: number }>;
@@ -750,6 +772,12 @@ declare global {
         checkUpdates: () => Promise<Array<{ projectId: string; projectName: string; templateId: string; currentVersion: string; latestVersion: string; hasUpdate: boolean; changes: string[] }>>;
         viewDiff: (projectId: string) => Promise<{ files: Array<{ path: string; status: string; content?: string }> } | { error: string }>;
         applyUpdate: (projectId: string) => Promise<{ ok: boolean; applied: number; error?: string }>;
+        listFiles: (templateId: string) => Promise<{ files: string[] } | { error: string }>;
+        readFile: (templateId: string, filePath: string) => Promise<{ ok: boolean; content: string; error?: string }>;
+        writeFile: (templateId: string, filePath: string, content: string) => Promise<{ ok: boolean; error?: string }>;
+        deleteFile: (templateId: string, filePath: string) => Promise<{ ok: boolean; error?: string }>;
+        renameFile: (templateId: string, oldPath: string, newPath: string) => Promise<{ ok: boolean; error?: string }>;
+        createTemplate: (opts: { id: string; name: string; description: string; duplicateFrom?: string }) => Promise<{ ok: boolean; templateId?: string; error?: string }>;
       };
       sync: {
         push: () => Promise<{ ok: boolean; error?: string }>;
