@@ -325,6 +325,152 @@ export function listProviders(): AIProvider[] {
   return PROVIDERS;
 }
 
+export interface StreamChatOptions {
+  messages: AIMessage[];
+  temperature?: number;
+  systemPrompt?: string;
+  signal?: AbortSignal;
+  onChunk: (chunk: string) => void;
+  onDone: (fullContent: string) => void;
+  onError: (error: string) => void;
+}
+
+export async function streamChat(opts: StreamChatOptions): Promise<void> {
+  const { provider, model, apiKey, baseUrl } = getProviderConfig();
+
+  if (!model) { opts.onError('No AI model configured.'); return; }
+  if (provider.requiresKey && !apiKey) { opts.onError(`No API key configured for ${provider.name}.`); return; }
+
+  const messages: AIMessage[] = [];
+  if (opts.systemPrompt) messages.push({ role: 'system', content: opts.systemPrompt });
+  messages.push(...opts.messages);
+
+  try {
+    if (provider.id === 'ollama') {
+      await streamOllama(baseUrl, model, apiKey, messages, opts);
+    } else if (provider.id === 'anthropic') {
+      await streamAnthropic(baseUrl, model, apiKey, messages, opts);
+    } else if (provider.id === 'google') {
+      // Google doesn't support streaming easily, use non-stream fallback
+      const result = await chatGoogle(baseUrl, model, apiKey, messages, { temperature: opts.temperature });
+      if (result.ok) { opts.onChunk(result.content); opts.onDone(result.content); }
+      else { opts.onError(result.error || 'Google API error'); }
+    } else {
+      // OpenAI-compatible streaming (openai, groq, together, custom)
+      await streamOpenAICompatible(baseUrl, model, apiKey, provider.id, messages, opts);
+    }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') { opts.onDone(''); return; }
+    opts.onError(err?.message || 'Stream failed');
+  }
+}
+
+async function streamOllama(baseUrl: string, model: string, apiKey: string, messages: AIMessage[], opts: StreamChatOptions): Promise<void> {
+  const endpoint = `${baseUrl}/api/chat`;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ model, messages: messages.map(m => ({ role: m.role, content: m.content })), stream: true, options: { ...(opts.temperature != null ? { temperature: opts.temperature } : {}) } }),
+    signal: opts.signal,
+  });
+
+  if (!res.ok) { opts.onError(`Ollama error ${res.status}`); return; }
+  if (!res.body) { opts.onError('No response body'); return; }
+
+  let full = '';
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const text = decoder.decode(value, { stream: true });
+    for (const line of text.split('\n').filter(l => l.trim())) {
+      try {
+        const json = JSON.parse(line);
+        const chunk = json?.message?.content || '';
+        if (chunk) { full += chunk; opts.onChunk(chunk); }
+        if (json.done) { opts.onDone(full); return; }
+      } catch { /* skip malformed */ }
+    }
+  }
+  opts.onDone(full);
+}
+
+async function streamOpenAICompatible(baseUrl: string, model: string, apiKey: string, providerId: string, messages: AIMessage[], opts: StreamChatOptions): Promise<void> {
+  const endpoint = `${baseUrl}/v1/chat/completions`;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` };
+
+  const body: any = { model, messages: messages.map(m => ({ role: m.role, content: m.content })), stream: true };
+  if (opts.temperature != null) body.temperature = opts.temperature;
+
+  const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: opts.signal });
+  if (!res.ok) { const t = await res.text().catch(() => ''); opts.onError(`${providerId} error ${res.status}: ${t.slice(0, 200)}`); return; }
+  if (!res.body) { opts.onError('No response body'); return; }
+
+  let full = '';
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const text = decoder.decode(value, { stream: true });
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed === 'data: [DONE]') continue;
+      if (trimmed.startsWith('data: ')) {
+        try {
+          const json = JSON.parse(trimmed.slice(6));
+          const chunk = json?.choices?.[0]?.delta?.content || '';
+          if (chunk) { full += chunk; opts.onChunk(chunk); }
+        } catch { /* skip */ }
+      }
+    }
+  }
+  opts.onDone(full);
+}
+
+async function streamAnthropic(baseUrl: string, model: string, apiKey: string, messages: AIMessage[], opts: StreamChatOptions): Promise<void> {
+  let systemPrompt: string | undefined;
+  const filtered: Array<{ role: string; content: string }> = [];
+  for (const m of messages) {
+    if (m.role === 'system') systemPrompt = m.content;
+    else filtered.push({ role: m.role, content: m.content });
+  }
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' };
+  const body: any = { model, messages: filtered, max_tokens: 4096, stream: true };
+  if (systemPrompt) body.system = systemPrompt;
+  if (opts.temperature != null) body.temperature = opts.temperature;
+
+  const res = await fetch(`${baseUrl}/v1/messages`, { method: 'POST', headers, body: JSON.stringify(body), signal: opts.signal });
+  if (!res.ok) { const t = await res.text().catch(() => ''); opts.onError(`Anthropic error ${res.status}: ${t.slice(0, 200)}`); return; }
+  if (!res.body) { opts.onError('No response body'); return; }
+
+  let full = '';
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const text = decoder.decode(value, { stream: true });
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data: ')) continue;
+      try {
+        const json = JSON.parse(trimmed.slice(6));
+        if (json.type === 'content_block_delta') {
+          const chunk = json.delta?.text || '';
+          if (chunk) { full += chunk; opts.onChunk(chunk); }
+        }
+      } catch { /* skip */ }
+    }
+  }
+  opts.onDone(full);
+}
+
 export async function testConnection(): Promise<{ ok: boolean; provider: string; model: string; error?: string }> {
   const { provider, model, apiKey, baseUrl } = getProviderConfig();
 

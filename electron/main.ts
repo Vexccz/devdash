@@ -33,6 +33,7 @@ import {
 } from './cache';
 import * as chatCache from './cache';
 import { listModels as ollamaListModels, streamChat as ollamaStreamChat } from './ollama';
+import { streamChat as aiStreamChat, listProviders, getActiveProvider } from './aiprovider';
 import { exportConfig, importConfig } from './configbackup';
 import * as backup from './backup';
 import * as collab from './collaborators';
@@ -1255,25 +1256,21 @@ function registerIpc() {
     activeStreams.set(args.streamId, controller);
 
     return new Promise<{ ok: boolean; content?: string; error?: string }>((resolve) => {
-      let responseText = '';
-      ollamaStreamChat({
-        model: args.model,
+      aiStreamChat({
         messages: args.messages,
         temperature: args.temperature,
         systemPrompt: args.systemPrompt,
         signal: controller.signal,
         onChunk: (chunk) => {
-          responseText += chunk;
           mainWindow?.webContents.send('ollama:chunk', { streamId: args.streamId, chunk });
         },
         onDone: (full) => {
           activeStreams.delete(args.streamId);
-          const finalText = full || responseText;
-          if (finalText.trim()) {
-            chatCache.addMessage(args.chatId, 'assistant', finalText);
+          if (full.trim()) {
+            chatCache.addMessage(args.chatId, 'assistant', full);
           }
-          mainWindow?.webContents.send('ollama:done', { streamId: args.streamId, content: finalText });
-          resolve({ ok: true, content: finalText });
+          mainWindow?.webContents.send('ollama:done', { streamId: args.streamId, content: full });
+          resolve({ ok: true, content: full });
         },
         onError: (error) => {
           activeStreams.delete(args.streamId);
