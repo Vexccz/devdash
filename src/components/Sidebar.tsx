@@ -1,4 +1,4 @@
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'zerolive' | 'aigen' | 'templates' | 'chat' | 'settings';
 
 interface Props {
   tab: Tab;
@@ -17,6 +17,9 @@ export default function Sidebar({ tab, onChange }: Props) {
     { id: 'metrics', label: 'Metrics', icon: <ChartIcon /> },
     { id: 'ports', label: 'Ports', icon: <PortIcon /> },
     { id: 'build', label: 'Build code', icon: <BuildIcon /> },
+    { id: 'zerolive', label: 'Zero to Live', icon: <RocketIcon /> },
+    { id: 'aigen', label: 'AI Code Gen', icon: <SparkleIcon /> },
+    { id: 'templates', label: 'Templates', icon: <LayersIcon /> },
     { id: 'chat', label: 'Chat', icon: <ChatIcon /> },
     { id: 'settings', label: 'Settings', icon: <GearIcon /> },
   ];
@@ -161,6 +164,35 @@ function BuildIcon() {
       <path d="M3 12l3-3 2 2 5-5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M10 6h3v3" strokeLinecap="round" strokeLinejoin="round" />
       <rect x="2" y="2" width="12" height="12" rx="1.5" />
+    </svg>
+  );
+}
+
+function RocketIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M8 2c0 0 4 2 4 7l-1.5 2H5.5L4 9c0-5 4-7 4-7z" strokeLinejoin="round" />
+      <circle cx="8" cy="7" r="1" />
+      <path d="M5.5 11l-1 3M10.5 11l1 3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.5 1.5M11 11l1.5 1.5M12.5 3.5l-1.5 1.5M5 11l-1.5 1.5" strokeLinecap="round" />
+      <circle cx="8" cy="8" r="2.5" />
+    </svg>
+  );
+}
+
+function LayersIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M8 2L2 5.5 8 9l6-3.5L8 2z" strokeLinejoin="round" />
+      <path d="M2 8l6 3.5L14 8" strokeLinejoin="round" />
+      <path d="M2 11l6 3.5 6-3.5" strokeLinejoin="round" />
     </svg>
   );
 }

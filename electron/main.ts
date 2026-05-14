@@ -58,6 +58,9 @@ import { fetchVercelAnalytics } from './vercelanalytics';
 import { detectFramework } from './frameworks';
 import { generateChangelog, writeChangelogToProject } from './changelog';
 import { performRelease } from './release';
+import * as aigen from './aigen';
+import * as templateversions from './templateversions';
+import * as cloudsync from './cloudsync';
 
 const isDev = !app.isPackaged;
 const DEV_URL = 'http://localhost:5173';
@@ -159,6 +162,7 @@ function createMainWindow() {
   childprocs.bindBroadcast(() => mainWindow);
   capacitor.bindBroadcast(() => mainWindow);
   scaffold.bindBroadcast(() => mainWindow);
+  aigen.bindBroadcast(() => mainWindow);
 }
 
 function setupTray() {
@@ -1176,6 +1180,29 @@ function registerIpc() {
     if (result.canceled || result.filePaths.length === 0) return { ok: false, error: 'cancelled' };
     return importConfig(result.filePaths[0], passphrase, true);
   });
+
+  // AI Code Generator
+  ipcMain.handle('aigen:run', async (_e, opts: { projectPath: string; prompt: string }) => {
+    return aigen.runAiGen({ projectPath: opts.projectPath, prompt: opts.prompt, dryRun: false });
+  });
+  ipcMain.handle('aigen:preview', async (_e, opts: { projectPath: string; prompt: string }) => {
+    return aigen.runAiGen({ projectPath: opts.projectPath, prompt: opts.prompt, dryRun: true });
+  });
+  ipcMain.handle('aigen:history', () => aigen.getHistory());
+
+  // Template versioning
+  ipcMain.handle('template:checkUpdates', () => templateversions.checkUpdates());
+  ipcMain.handle('template:viewDiff', (_e, projectId: string) => templateversions.viewDiff(projectId));
+  ipcMain.handle('template:applyUpdate', (_e, projectId: string) => templateversions.applyUpdate(projectId));
+
+  // Cloud sync
+  ipcMain.handle('sync:push', () => cloudsync.push());
+  ipcMain.handle('sync:pull', () => cloudsync.pull());
+  ipcMain.handle('sync:status', () => cloudsync.getStatus());
+  ipcMain.handle('sync:configure', (_e, args: { supabaseUrl: string; supabaseAnonKey: string; enabled: boolean }) => {
+    return cloudsync.configure(args.supabaseUrl, args.supabaseAnonKey, args.enabled);
+  });
+
   ipcMain.handle('window:close', () => {
     quittingForReal = true;
     app.quit();
@@ -1216,6 +1243,11 @@ if (!gotLock) {
       automations.start(broadcast);
     } catch (err) {
       console.error('[automations] start failed:', err);
+    }
+    try {
+      cloudsync.initSync();
+    } catch (err) {
+      console.error('[cloudsync] init failed:', err);
     }
   });
 }

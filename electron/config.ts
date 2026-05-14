@@ -19,6 +19,9 @@ export interface ProjectConfig {
   logsFolder?: string;
   errorThresholdPerDay?: number;
   tags?: string[];
+  templateId?: string;
+  templateVersion?: string;
+  scaffoldedAt?: string;
 }
 
 export interface AppConfig {
@@ -45,6 +48,9 @@ export interface AppConfig {
     theme: 'dark' | 'light' | 'system';
     onboardingComplete?: boolean;
     githubToken?: string;
+    supabaseUrl?: string;
+    supabaseAnonKey?: string;
+    syncEnabled?: boolean;
   };
 }
 
@@ -72,6 +78,9 @@ const DEFAULT_CONFIG: AppConfig = {
     theme: 'dark',
     onboardingComplete: false,
     githubToken: '',
+    supabaseUrl: '',
+    supabaseAnonKey: '',
+    syncEnabled: false,
   },
 };
 

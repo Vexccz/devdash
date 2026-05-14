@@ -18,9 +18,13 @@ import MetricsView from './components/MetricsView';
 import OnboardingWizard from './components/OnboardingWizard';
 import ShortcutsOverlay from './components/ShortcutsOverlay';
 import Toasts from './components/Toasts';
+import AICodeGen from './components/AICodeGen';
+import ZeroToLive from './components/ZeroToLive';
+import TemplateUpdates from './components/TemplateUpdates';
+import CloudSync from './components/CloudSync';
 import type { ProjectConfig } from './types';
 
-type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'chat' | 'settings';
+type Tab = 'projects' | 'deploys' | 'uptime' | 'time' | 'deps' | 'automations' | 'dbhealth' | 'metrics' | 'ports' | 'build' | 'zerolive' | 'aigen' | 'templates' | 'chat' | 'settings';
 type DetailTab = 'overview' | 'logs' | 'env' | 'time' | 'deps' | 'heatmap' | 'screenshots' | 'release';
 
 export default function App() {
@@ -117,6 +121,9 @@ export default function App() {
           {tab === 'metrics' && <MetricsView />}
           {tab === 'ports' && <PortsView onOpenProject={(id) => openProject(id, 'overview')} />}
           {tab === 'build' && <BuildCodeView onProjectCreated={() => void loadProjects()} />}
+          {tab === 'zerolive' && <ZeroToLive onProjectCreated={() => void loadProjects()} />}
+          {tab === 'aigen' && <AICodeGen />}
+          {tab === 'templates' && <TemplateUpdates />}
           {tab === 'chat' && <ChatView />}
           {tab === 'settings' && <SettingsView />}
         </main>

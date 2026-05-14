@@ -14,6 +14,9 @@ export interface ProjectConfig {
   logsFolder?: string;
   errorThresholdPerDay?: number;
   tags?: string[];
+  templateId?: string;
+  templateVersion?: string;
+  scaffoldedAt?: string;
 }
 
 export interface GitInfo {
@@ -116,6 +119,9 @@ export interface AppSettings {
   theme: 'dark' | 'light' | 'system';
   onboardingComplete?: boolean;
   githubToken?: string;
+  supabaseUrl?: string;
+  supabaseAnonKey?: string;
+  syncEnabled?: boolean;
 }
 
 export interface Toast {
@@ -733,6 +739,23 @@ declare global {
       config: {
         export: (passphrase: string) => Promise<{ ok: boolean; error?: string }>;
         import: (passphrase: string) => Promise<{ ok: boolean; error?: string }>;
+      };
+      aigen: {
+        run: (opts: { projectPath: string; prompt: string }) => Promise<{ ok: boolean; operations: Array<{ action: string; path: string; content?: string }>; error?: string }>;
+        preview: (opts: { projectPath: string; prompt: string }) => Promise<{ ok: boolean; operations: Array<{ action: string; path: string; content?: string }>; error?: string }>;
+        history: () => Promise<Array<{ id: string; projectPath: string; prompt: string; operations: Array<{ action: string; path: string; content?: string }>; appliedAt?: string; createdAt: string }>>;
+        onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => () => void;
+      };
+      template: {
+        checkUpdates: () => Promise<Array<{ projectId: string; projectName: string; templateId: string; currentVersion: string; latestVersion: string; hasUpdate: boolean; changes: string[] }>>;
+        viewDiff: (projectId: string) => Promise<{ files: Array<{ path: string; status: string; content?: string }> } | { error: string }>;
+        applyUpdate: (projectId: string) => Promise<{ ok: boolean; applied: number; error?: string }>;
+      };
+      sync: {
+        push: () => Promise<{ ok: boolean; error?: string }>;
+        pull: () => Promise<{ ok: boolean; merged?: boolean; error?: string }>;
+        status: () => Promise<{ enabled: boolean; lastSynced: string | null; status: string; error?: string }>;
+        configure: (supabaseUrl: string, supabaseAnonKey: string, enabled: boolean) => Promise<{ enabled: boolean; lastSynced: string | null; status: string; error?: string }>;
       };
       automations: {
         list: () => Promise<AutomationJob[]>;

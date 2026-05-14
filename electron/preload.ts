@@ -246,6 +246,28 @@ const api = {
     export: (passphrase: string) => ipcRenderer.invoke('config:export', passphrase),
     import: (passphrase: string) => ipcRenderer.invoke('config:import', passphrase),
   },
+  aigen: {
+    run: (opts: { projectPath: string; prompt: string }) => ipcRenderer.invoke('aigen:run', opts),
+    preview: (opts: { projectPath: string; prompt: string }) => ipcRenderer.invoke('aigen:preview', opts),
+    history: () => ipcRenderer.invoke('aigen:history'),
+    onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => {
+      const h = (_: unknown, payload: any) => cb(payload);
+      ipcRenderer.on('aigen:log', h);
+      return () => ipcRenderer.removeListener('aigen:log', h);
+    },
+  },
+  template: {
+    checkUpdates: () => ipcRenderer.invoke('template:checkUpdates'),
+    viewDiff: (projectId: string) => ipcRenderer.invoke('template:viewDiff', projectId),
+    applyUpdate: (projectId: string) => ipcRenderer.invoke('template:applyUpdate', projectId),
+  },
+  sync: {
+    push: () => ipcRenderer.invoke('sync:push'),
+    pull: () => ipcRenderer.invoke('sync:pull'),
+    status: () => ipcRenderer.invoke('sync:status'),
+    configure: (supabaseUrl: string, supabaseAnonKey: string, enabled: boolean) =>
+      ipcRenderer.invoke('sync:configure', { supabaseUrl, supabaseAnonKey, enabled }),
+  },
   automations: {
     list: () => ipcRenderer.invoke('automation:list'),
     save: (input: any) => ipcRenderer.invoke('automation:save', input),
