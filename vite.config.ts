@@ -6,6 +6,14 @@ export default defineConfig({
   root: path.join(__dirname, 'src'),
   plugins: [react()],
   base: './',
+  css: {
+    postcss: {
+      plugins: [
+        require('tailwindcss'),
+        require('autoprefixer'),
+      ],
+    },
+  },
   server: {
     port: 5173,
     strictPort: true,

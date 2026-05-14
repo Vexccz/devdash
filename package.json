@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "devdash",
     "version":  "0.22.0",
     "description":  "DevDash - Windows dashboard for local projects + deploy radar (Vercel/Render).",
