@@ -114,7 +114,7 @@ export default function OnboardingWizard({ onComplete }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="flex h-[90vh] w-full max-w-3xl flex-col rounded-lg border border-dash-line bg-dash-panel shadow-glow">
+      <div className="flex h-[90vh] w-full max-w-3xl flex-col rounded-lg border border-dash-line bg-dash-panel shadow-2xl">
         <header className="flex items-center justify-between border-b border-dash-line px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold">Welcome to DevDash</h2>

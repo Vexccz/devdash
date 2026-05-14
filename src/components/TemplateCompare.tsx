@@ -38,7 +38,7 @@ export default function TemplateCompare({ templates, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
-        className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-xl border border-dash-line bg-dash-card shadow-xl"
+        className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-lg border border-dash-line bg-dash-card shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-dash-line px-4 py-3">

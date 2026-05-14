@@ -183,18 +183,18 @@ export default function CommandPalette({ open, onClose, projects, onOpenProject,
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/60 pt-24 backdrop-blur-sm">
-      <div className="w-[520px] overflow-hidden rounded-lg border border-dash-line bg-dash-panel shadow-glow">
+    <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/70 pt-24 backdrop-blur-sm">
+      <div className="w-[520px] overflow-hidden rounded-lg border border-[#222] bg-[#111] shadow-2xl">
         <input
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Type project + action, e.g. 'scoreku dev'"
-          className="w-full border-b border-dash-line bg-transparent px-4 py-3 text-sm text-dash-text placeholder-dash-mute focus:outline-none"
+          className="w-full border-b border-[#222] bg-transparent px-4 py-3 text-sm text-white placeholder-[#666] focus:outline-none"
         />
         <ul className="max-h-[360px] overflow-y-auto">
           {results.length === 0 && (
-            <li className="px-4 py-3 text-xs text-dash-mute">No actions match.</li>
+            <li className="px-4 py-3 text-xs text-[#666]">No actions match.</li>
           )}
           {results.map((r, i) => (
             <li
@@ -204,16 +204,16 @@ export default function CommandPalette({ open, onClose, projects, onOpenProject,
                 onClose();
                 await r.run();
               }}
-              className={`cursor-pointer px-4 py-2 text-sm ${
+              className={`cursor-pointer px-4 py-2 text-sm transition-colors duration-150 ${
                 i === index
-                  ? 'bg-dash-indigo/20 text-dash-indigoBright'
-                  : 'text-dash-text hover:bg-white/5'
+                  ? 'bg-white/[0.06] text-white'
+                  : 'text-[#888] hover:bg-white/[0.03] hover:text-white'
               }`}
             >
               <div className="flex items-center justify-between">
                 <span>{r.label}</span>
                 {r.hint && (
-                  <span className="text-[10px] uppercase tracking-wider text-dash-mute">
+                  <span className="text-[10px] uppercase tracking-wider text-[#444]">
                     {r.hint}
                   </span>
                 )}
@@ -221,7 +221,7 @@ export default function CommandPalette({ open, onClose, projects, onOpenProject,
             </li>
           ))}
         </ul>
-        <div className="border-t border-dash-line px-4 py-2 text-[10px] text-dash-mute">
+        <div className="border-t border-[#222] px-4 py-2 text-[10px] text-[#444]">
           ↑/↓ navigate · Enter run · Esc close
         </div>
       </div>

@@ -27,16 +27,16 @@ export default function Toasts() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`toast pointer-events-auto min-w-[240px] max-w-sm rounded-md border px-3 py-2 text-xs shadow-glow ${
+          className={`toast pointer-events-auto min-w-[240px] max-w-sm rounded-md border px-3 py-2 text-xs shadow-lg ${
             t.type === 'error'
-              ? 'border-dash-err/50 bg-dash-err/10 text-dash-text'
+              ? 'border-[#EE0000]/30 bg-[#EE0000]/5 text-white'
               : t.type === 'success'
-              ? 'border-dash-ok/50 bg-dash-ok/10 text-dash-text'
-              : 'border-dash-line bg-dash-panel text-dash-text'
+              ? 'border-[#00C853]/30 bg-[#00C853]/5 text-white'
+              : 'border-[#222] bg-[#111] text-white'
           }`}
         >
           <div className="font-medium">{t.title}</div>
-          {t.body && <div className="mt-0.5 text-[11px] text-dash-mute">{t.body}</div>}
+          {t.body && <div className="mt-0.5 text-[11px] text-[#888]">{t.body}</div>}
         </div>
       ))}
     </div>

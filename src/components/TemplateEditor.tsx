@@ -248,7 +248,7 @@ export default function TemplateEditor({ templates }: Props) {
       {/* Create template modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowCreate(false)}>
-          <div className="w-full max-w-sm rounded-xl border border-dash-line bg-dash-card p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-lg border border-dash-line bg-dash-card p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-sm font-semibold text-dash-text mb-3">Create New Template</h4>
             <div className="space-y-2">
               <div>
@@ -284,7 +284,7 @@ export default function TemplateEditor({ templates }: Props) {
       {/* Rename modal */}
       {showRename && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowRename(false)}>
-          <div className="w-full max-w-sm rounded-xl border border-dash-line bg-dash-card p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-sm rounded-lg border border-dash-line bg-dash-card p-4 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h4 className="text-sm font-semibold text-dash-text mb-3">Rename File</h4>
             <p className="text-[10px] text-dash-mute mb-2">From: {renameTarget}</p>
             <input

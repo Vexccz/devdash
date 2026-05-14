@@ -250,89 +250,89 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between pb-3">
+      <div className="flex items-center justify-between pb-4">
         <div>
-          <h1 className="text-lg font-semibold text-dash-text">Build code</h1>
-          <p className="text-xs text-dash-mute">
+          <h1 className="text-base font-semibold text-white tracking-tight">Build code</h1>
+          <p className="text-xs text-[#666] mt-0.5">
             Scaffold a production-ready SaaS in one click. Auth, payments, admin, emails wired up.
           </p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setCompareOpen(true)} className="btn-soft text-[10px]">Compare</button>
-          <button onClick={() => setHistoryOpen(!historyOpen)} className="btn-soft text-[10px]">{historyOpen ? 'Hide History' : 'History'}</button>
-          <button onClick={() => setEditorOpen(!editorOpen)} className="btn-soft text-[10px]">{editorOpen ? 'Hide Editor' : 'Editor'}</button>
+          <button onClick={() => setCompareOpen(true)} className="btn-soft">Compare</button>
+          <button onClick={() => setHistoryOpen(!historyOpen)} className="btn-soft">{historyOpen ? 'Hide History' : 'History'}</button>
+          <button onClick={() => setEditorOpen(!editorOpen)} className="btn-soft">{editorOpen ? 'Hide Editor' : 'Editor'}</button>
         </div>
       </div>
 
       {/* History panel */}
       {historyOpen && (
-        <div className="mb-4 rounded-lg border border-dash-line bg-dash-card p-4">
+        <div className="mb-4 rounded-lg border border-[#222] bg-[#111] p-4">
           <ScaffoldHistory onReScaffold={handleReScaffold} />
         </div>
       )}
 
       {/* Template Editor panel */}
       {editorOpen && (
-        <div className="mb-4 rounded-lg border border-dash-line bg-dash-card p-4" style={{ height: '400px' }}>
+        <div className="mb-4 rounded-lg border border-[#222] bg-[#111] p-4" style={{ height: '400px' }}>
           <TemplateEditor templates={templates} />
         </div>
       )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden lg:grid-cols-2">
-        <section className="card flex flex-col gap-3 overflow-y-auto p-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-dash-mute">Configure</h3>
+        <section className="flex flex-col gap-3 overflow-y-auto rounded-lg border border-[#222] bg-[#111] p-4">
+          <h3 className="text-xs font-medium uppercase tracking-wider text-[#666]">Configure</h3>
 
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-dash-mute">Project name (folder)</label>
+            <label className="text-[11px] text-[#888]">Project name (folder)</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="my-saas"
-              className="mt-1 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-xs text-dash-text"
+              className="mt-1 w-full rounded-md border border-[#333] bg-[#0A0A0A] px-3 py-1.5 font-mono text-sm text-white placeholder:text-[#444]"
             />
-            <p className="mt-1 text-[10px] text-dash-mute">Letters, numbers, dashes, underscores.</p>
+            <p className="mt-1 text-[10px] text-[#444]">Letters, numbers, dashes, underscores.</p>
           </div>
 
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-dash-mute">Display name (shown in UI)</label>
+            <label className="text-[11px] text-[#888]">Display name (shown in UI)</label>
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="My SaaS"
-              className="mt-1 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 text-xs text-dash-text"
+              className="mt-1 w-full rounded-md border border-[#333] bg-[#0A0A0A] px-3 py-1.5 text-sm text-white placeholder:text-[#444]"
             />
           </div>
 
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-dash-mute">Parent folder</label>
+            <label className="text-[11px] text-[#888]">Parent folder</label>
             <div className="mt-1 flex gap-2">
               <input
                 readOnly
                 value={parent}
                 placeholder="Click Choose…"
-                className="flex-1 rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+                className="flex-1 rounded-md border border-[#333] bg-[#0A0A0A] px-3 py-1.5 font-mono text-[11px] text-white placeholder:text-[#444]"
               />
               <button onClick={pickParent} className="btn-soft">Choose…</button>
             </div>
             {parent && name && (
-              <p className="mt-1 text-[10px] text-dash-mute font-mono">→ {parent}\{name}</p>
+              <p className="mt-1 text-[10px] text-[#444] font-mono">→ {parent}\{name}</p>
             )}
           </div>
 
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-dash-mute">Template</label>
+            <label className="text-[11px] text-[#888]">Template</label>
             <input
               value={templateSearch}
               onChange={(e) => setTemplateSearch(e.target.value)}
               placeholder="Search templates..."
-              className="mt-1 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1 text-xs text-dash-text"
+              className="mt-1 w-full rounded-md border border-[#333] bg-[#0A0A0A] px-3 py-1.5 text-sm text-white placeholder:text-[#444]"
             />
             <div className="mt-1 flex gap-2">
               <select
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
                 disabled={useCustomTemplate}
-                className="flex-1 rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 text-xs text-dash-text disabled:opacity-50"
+                className="flex-1 rounded-md border border-[#333] bg-[#0A0A0A] px-3 py-1.5 text-sm text-white disabled:opacity-50"
               >
                 {filteredTemplates.map((t) => (
                   <option key={t.id} value={t.id}>{favorites.includes(t.id) ? '★ ' : ''}{t.label}</option>
@@ -341,7 +341,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
               <button
                 onClick={() => toggleFavorite(template)}
                 disabled={useCustomTemplate}
-                className="btn-soft text-[10px] disabled:opacity-40"
+                className="btn-soft disabled:opacity-40"
                 title={favorites.includes(template) ? 'Unfavorite' : 'Favorite'}
               >
                 {favorites.includes(template) ? '★' : '☆'}
@@ -349,7 +349,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
               <button
                 onClick={handlePreview}
                 disabled={useCustomTemplate}
-                className="btn-soft text-[10px] disabled:opacity-40"
+                className="btn-soft disabled:opacity-40"
                 title="Preview template file tree"
               >
                 Preview
@@ -357,13 +357,13 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
               <button
                 onClick={handleDryRun}
                 disabled={useCustomTemplate || !name.trim()}
-                className="btn-soft text-[10px] disabled:opacity-40"
+                className="btn-soft disabled:opacity-40"
                 title="Dry run with replacements applied"
               >
                 Dry Run
               </button>
             </div>
-            <p className="mt-1 text-[10px] text-dash-mute">
+            <p className="mt-1 text-[10px] text-[#444]">
               {templates.find((t) => t.id === template)?.description}
             </p>
           </div>
@@ -382,7 +382,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                 value={customTemplateRepo}
                 onChange={(e) => setCustomTemplateRepo(e.target.value)}
                 placeholder="owner/repo or https://github.com/owner/repo"
-                className="mt-2 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+                className="mt-2 w-full rounded-md border border-[#333] bg-[#0A0A0A] px-3 py-1.5 font-mono text-[11px] text-white placeholder:text-[#444]"
               />
             )}
           </div>
@@ -392,13 +392,13 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
             <button
               type="button"
               onClick={() => setMarketplaceOpen(!marketplaceOpen)}
-              className="flex items-center gap-1.5 text-xs text-dash-accent hover:text-dash-text"
+              className="flex items-center gap-1.5 text-xs text-[#888] hover:text-white transition-colors duration-150"
             >
               <span className="text-[10px]">{marketplaceOpen ? '▾' : '▸'}</span>
               Browse community templates
             </button>
             {marketplaceOpen && (
-              <div className="mt-2 rounded-lg border border-dash-line bg-dash-card p-3">
+              <div className="mt-2 rounded-lg border border-[#222] bg-[#0A0A0A] p-3">
                 <TemplateMarketplace
                   onUse={(url) => {
                     setUseCustomTemplate(true);
@@ -413,18 +413,18 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
           {/* UI Kit Selection */}
           {template !== 'flutter-firebase' && (
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-dash-mute">UI Kit</label>
+              <label className="text-[11px] text-[#888]">UI Kit</label>
               <select
                 value={uiKit}
                 onChange={(e) => setUiKit(e.target.value as typeof uiKit)}
-                className="mt-1 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 text-xs text-dash-text"
+                className="mt-1 w-full rounded-md border border-[#333] bg-[#0A0A0A] px-3 py-1.5 text-sm text-white"
               >
                 <option value="tailwind">Tailwind CSS (default)</option>
                 <option value="shadcn">shadcn/ui (Radix + Tailwind)</option>
                 <option value="material">Material UI (MUI)</option>
                 <option value="chakra">Chakra UI</option>
               </select>
-              <p className="mt-1 text-[10px] text-dash-mute">
+              <p className="mt-1 text-[10px] text-[#444]">
                 {uiKit === 'tailwind' && 'Already included in templates. No extra deps.'}
                 {uiKit === 'shadcn' && 'Adds Radix primitives, CVA, tailwind-merge + base components (Button, Input, Card).'}
                 {uiKit === 'material' && 'Adds @mui/material + Emotion styling engine.'}
@@ -436,9 +436,9 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
           {/* Environment Preset */}
           {template !== 'flutter-firebase' && (
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-dash-mute">Environment Preset</label>
+              <label className="text-[11px] text-[#888]">Environment Preset</label>
               <div className="mt-1 flex flex-col gap-1.5">
-                <label className="flex items-center gap-2 text-xs text-dash-text">
+                <label className="flex items-center gap-2 text-xs text-white">
                   <input
                     type="radio"
                     name="envPreset"
@@ -448,7 +448,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                   />
                   Dev (default, no extra packages)
                 </label>
-                <label className="flex items-center gap-2 text-xs text-dash-text">
+                <label className="flex items-center gap-2 text-xs text-white">
                   <input
                     type="radio"
                     name="envPreset"
@@ -457,9 +457,9 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                     onChange={() => setEnvPreset('production')}
                   />
                   Production
-                  <span className="text-[10px] text-dash-mute">+Sentry, helmet, rate-limit, compression, cors</span>
+                  <span className="text-[10px] text-[#666]">+Sentry, helmet, rate-limit, compression, cors</span>
                 </label>
-                <label className="flex items-center gap-2 text-xs text-dash-text">
+                <label className="flex items-center gap-2 text-xs text-white">
                   <input
                     type="radio"
                     name="envPreset"
@@ -468,13 +468,13 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                     onChange={() => setEnvPreset('indie-saas')}
                   />
                   Indie SaaS
-                  <span className="text-[10px] text-dash-mute">+Production + PostHog + Logtail</span>
+                  <span className="text-[10px] text-[#666]">+Production + PostHog + Logtail</span>
                 </label>
               </div>
             </div>
           )}
 
-          <div className="flex flex-col gap-1.5 text-xs text-dash-text">
+          <div className="flex flex-col gap-1.5 text-xs text-white">
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={useStripe} onChange={(e) => setUseStripe(e.target.checked)} />
               Include Stripe payment scaffolding
@@ -514,7 +514,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                 onChange={(e) => setDeployToVercel(e.target.checked)}
               />
               Deploy to Vercel
-              {!hasVercelToken && <span className="text-[10px] text-dash-mute">(no token)</span>}
+              {!hasVercelToken && <span className="text-[10px] text-[#666]">(no token)</span>}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -524,7 +524,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                 onChange={(e) => setDeployToRender(e.target.checked)}
               />
               Deploy to Render
-              {!hasRenderToken && <span className="text-[10px] text-dash-mute">(no token)</span>}
+              {!hasRenderToken && <span className="text-[10px] text-[#666]">(no token)</span>}
             </label>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={autoOpenVSCode} onChange={(e) => setAutoOpenVSCode(e.target.checked)} />
@@ -535,36 +535,36 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
           {/* Multi-project Structure */}
           {showPolyrepo && (
             <div>
-              <label className="text-[10px] uppercase tracking-wider text-dash-mute">Project Structure</label>
+              <label className="text-[11px] text-[#888]">Project Structure</label>
               <div className="mt-1 flex gap-3">
-                <label className="flex items-center gap-2 text-xs text-dash-text">
+                <label className="flex items-center gap-2 text-xs text-white">
                   <input type="radio" name="structure" value="monorepo" checked={structure === 'monorepo'} onChange={() => setStructure('monorepo')} />
                   Monorepo (single folder)
                 </label>
-                <label className="flex items-center gap-2 text-xs text-dash-text">
+                <label className="flex items-center gap-2 text-xs text-white">
                   <input type="radio" name="structure" value="polyrepo" checked={structure === 'polyrepo'} onChange={() => setStructure('polyrepo')} />
                   Polyrepo (separate repos)
                 </label>
               </div>
               {structure === 'polyrepo' && (
-                <p className="mt-1 text-[10px] text-dash-mute">Creates {name}-frontend and {name}-backend as separate folders with own git init.</p>
+                <p className="mt-1 text-[10px] text-[#444]">Creates {name}-frontend and {name}-backend as separate folders with own git init.</p>
               )}
             </div>
           )}
 
           {/* Post-scaffold Hooks */}
           <div>
-            <label className="text-[10px] uppercase tracking-wider text-dash-mute">Post-scaffold Hooks</label>
+            <label className="text-[11px] text-[#888]">Post-scaffold Hooks</label>
             <div className="mt-1 flex flex-col gap-1">
               {predefinedHooks.map((hook) => (
-                <label key={hook.label} className="flex items-center gap-2 text-xs text-dash-text">
+                <label key={hook.label} className="flex items-center gap-2 text-xs text-white">
                   <input
                     type="checkbox"
                     checked={postHooks.some((h) => h.label === hook.label)}
                     onChange={() => toggleHook(hook)}
                   />
                   {hook.label}
-                  <span className="text-[10px] text-dash-mute font-mono">{hook.command}</span>
+                  <span className="text-[10px] text-[#666] font-mono">{hook.command}</span>
                 </label>
               ))}
               <div className="flex gap-1 mt-1">
@@ -572,13 +572,13 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                   value={customHookCmd}
                   onChange={(e) => setCustomHookCmd(e.target.value)}
                   placeholder="Custom command..."
-                  className="flex-1 rounded-md border border-dash-line bg-dash-bg px-2 py-1 font-mono text-[10px] text-dash-text"
+                  className="flex-1 rounded-md border border-[#333] bg-[#0A0A0A] px-2 py-1 font-mono text-[10px] text-white placeholder:text-[#444]"
                   onKeyDown={(e) => e.key === 'Enter' && addCustomHook()}
                 />
-                <button onClick={addCustomHook} className="btn-soft text-[10px]">Add</button>
+                <button onClick={addCustomHook} className="btn-soft">Add</button>
               </div>
               {postHooks.filter((h) => !predefinedHooks.some((p) => p.label === h.label)).map((h, i) => (
-                <div key={i} className="flex items-center gap-2 text-[10px] text-dash-text ml-4">
+                <div key={i} className="flex items-center gap-2 text-[10px] text-white ml-4">
                   <span className="font-mono">{h.command}</span>
                   <button onClick={() => setPostHooks(postHooks.filter((ph) => ph !== h))} className="text-red-400 hover:text-red-300">×</button>
                 </div>
@@ -598,8 +598,8 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
             <div
               className={`rounded-md px-3 py-2 text-[11px] ${
                 result.ok
-                  ? 'border border-dash-ok/30 bg-dash-ok/10 text-dash-ok'
-                  : 'border border-red-500/30 bg-red-500/10 text-red-400'
+                  ? 'border border-[#00C853]/20 bg-[#00C853]/5 text-[#00C853]'
+                  : 'border border-[#EE0000]/20 bg-[#EE0000]/5 text-[#EE0000]'
               }`}
             >
               {result.ok ? (
@@ -610,7 +610,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                       href={result.githubUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn-soft text-[10px]"
+                      className="btn-soft"
                     >
                       Open repo
                     </a>
@@ -620,7 +620,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                       href={result.vercelUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn-soft text-[10px]"
+                      className="btn-soft"
                     >
                       Vercel ↗
                     </a>
@@ -630,25 +630,25 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                       href={result.renderUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="btn-soft text-[10px]"
+                      className="btn-soft"
                     >
                       Render ↗
                     </a>
                   )}
                   <button
-                    className="btn-soft text-[10px]"
+                    className="btn-soft"
                     onClick={() => result.targetDir && window.devdash.projects.openFolder(result.targetDir)}
                   >
                     Open folder
                   </button>
                   <button
-                    className="btn-soft text-[10px]"
+                    className="btn-soft"
                     onClick={() => result.targetDir && window.devdash.projects.openInVSCode(result.targetDir)}
                   >
                     Open in VS Code
                   </button>
                   <button
-                    className="btn-soft text-[10px]"
+                    className="btn-soft"
                     disabled={readmeGenerating}
                     onClick={handleGenerateReadme}
                   >
@@ -662,19 +662,19 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
           )}
         </section>
 
-        <section className="card flex min-h-0 flex-col overflow-hidden p-0">
-          <div className="flex items-center justify-between border-b border-dash-line px-3 py-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-dash-mute">Build log</h3>
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#222] bg-[#111] p-0">
+          <div className="flex items-center justify-between border-b border-[#222] px-3 py-2">
+            <h3 className="text-xs font-medium text-[#888]">Build log</h3>
             <button
-              className="text-[10px] text-dash-mute hover:text-dash-text"
+              className="text-[10px] text-[#666] hover:text-white transition-colors duration-150"
               onClick={() => setLogs([])}
             >
               Clear
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 font-mono text-[10px]">
+          <div className="flex-1 overflow-y-auto p-3 font-mono text-[11px]">
             {logs.length === 0 ? (
-              <p className="px-2 py-1 text-dash-mute">Logs appear here once you click Generate.</p>
+              <p className="px-2 py-1 text-[#444]">Logs appear here once you click Generate.</p>
             ) : (
               <>
                 {logs.map((l, i) => (
@@ -682,10 +682,10 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                     key={i}
                     className={
                       l.stream === 'stderr'
-                        ? 'text-red-400'
+                        ? 'text-[#EE0000]'
                         : l.stream === 'system'
-                        ? 'text-dash-indigoBright'
-                        : 'text-dash-text'
+                        ? 'text-[#0070F3]'
+                        : 'text-[#ccc]'
                     }
                   >
                     {l.line}
@@ -700,29 +700,29 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
 
       {/* Template Preview Modal */}
       {previewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setPreviewOpen(false)}>
-          <div className="max-h-[70vh] w-full max-w-md overflow-hidden rounded-xl border border-dash-line bg-dash-card shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-dash-line px-4 py-3">
-              <h3 className="text-sm font-semibold text-dash-text">Template Preview: {template}</h3>
-              <button onClick={() => setPreviewOpen(false)} className="text-dash-mute hover:text-dash-text text-lg leading-none">&times;</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setPreviewOpen(false)}>
+          <div className="max-h-[70vh] w-full max-w-md overflow-hidden rounded-lg border border-[#222] bg-[#111] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#222] px-4 py-3">
+              <h3 className="text-sm font-medium text-white">Template Preview: {template}</h3>
+              <button onClick={() => setPreviewOpen(false)} className="text-[#666] hover:text-white text-lg leading-none transition-colors duration-150">&times;</button>
             </div>
             <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(70vh - 60px)' }}>
               {previewLoading ? (
-                <p className="text-xs text-dash-mute">Loading...</p>
+                <p className="text-xs text-[#666]">Loading...</p>
               ) : previewData ? (
                 <>
-                  <div className="mb-3 flex gap-4 text-[11px] text-dash-mute">
+                  <div className="mb-3 flex gap-4 text-[11px] text-[#888]">
                     <span>{previewData.fileCount} files</span>
                     <span>{previewData.lineCount.toLocaleString()} lines</span>
                   </div>
-                  <div className="space-y-0.5 font-mono text-[10px] text-dash-text">
+                  <div className="space-y-0.5 font-mono text-[10px] text-[#ccc]">
                     {previewData.files.map((f, i) => (
                       <div key={i} className="truncate">{f}</div>
                     ))}
                   </div>
                 </>
               ) : (
-                <p className="text-xs text-red-400">Template not found.</p>
+                <p className="text-xs text-[#EE0000]">Template not found.</p>
               )}
             </div>
           </div>
@@ -736,28 +736,28 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
 
       {/* Dry Run Modal */}
       {dryRunOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setDryRunOpen(false)}>
-          <div className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-xl border border-dash-line bg-dash-card shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-dash-line px-4 py-3">
-              <h3 className="text-sm font-semibold text-dash-text">Dry Run Preview</h3>
-              <button onClick={() => setDryRunOpen(false)} className="text-dash-mute hover:text-dash-text text-lg leading-none">&times;</button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setDryRunOpen(false)}>
+          <div className="max-h-[80vh] w-full max-w-3xl overflow-hidden rounded-lg border border-[#222] bg-[#111] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-[#222] px-4 py-3">
+              <h3 className="text-sm font-medium text-white">Dry Run Preview</h3>
+              <button onClick={() => setDryRunOpen(false)} className="text-[#666] hover:text-white text-lg leading-none transition-colors duration-150">&times;</button>
             </div>
             <div className="flex" style={{ height: 'calc(80vh - 60px)' }}>
               {dryRunLoading ? (
                 <div className="flex items-center justify-center w-full">
-                  <p className="text-xs text-dash-mute">Running dry run...</p>
+                  <p className="text-xs text-[#666]">Running dry run...</p>
                 </div>
               ) : dryRunData ? (
                 <>
                   {/* File tree */}
-                  <div className="w-56 flex-shrink-0 overflow-y-auto border-r border-dash-line p-2">
-                    <p className="text-[10px] text-dash-mute mb-2">{dryRunData.files.length} files</p>
+                  <div className="w-56 flex-shrink-0 overflow-y-auto border-r border-[#222] p-2">
+                    <p className="text-[10px] text-[#666] mb-2">{dryRunData.files.length} files</p>
                     {dryRunData.files.map((f, i) => (
                       <div
                         key={i}
                         onClick={() => setDryRunSelectedFile(f.path)}
-                        className={`cursor-pointer truncate rounded px-1.5 py-0.5 font-mono text-[10px] ${
-                          dryRunSelectedFile === f.path ? 'bg-dash-accent/20 text-dash-accent' : 'text-dash-text hover:bg-dash-line/50'
+                        className={`cursor-pointer truncate rounded px-1.5 py-0.5 font-mono text-[10px] transition-colors duration-150 ${
+                          dryRunSelectedFile === f.path ? 'bg-[#0070F3]/10 text-[#0070F3]' : 'text-[#ccc] hover:bg-white/[0.04]'
                         }`}
                         title={f.path}
                       >
@@ -769,19 +769,19 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                   <div className="flex-1 overflow-y-auto p-3">
                     {dryRunSelectedFile ? (
                       <>
-                        <p className="text-[10px] font-mono text-dash-mute mb-2">{dryRunSelectedFile}</p>
-                        <pre className="whitespace-pre-wrap font-mono text-[10px] text-dash-text">
+                        <p className="text-[10px] font-mono text-[#888] mb-2">{dryRunSelectedFile}</p>
+                        <pre className="whitespace-pre-wrap font-mono text-[10px] text-[#ccc]">
                           {dryRunData.files.find((f) => f.path === dryRunSelectedFile)?.content || ''}
                         </pre>
                       </>
                     ) : (
-                      <p className="text-xs text-dash-mute">Click a file to view its content with all replacements applied.</p>
+                      <p className="text-xs text-[#666]">Click a file to view its content with all replacements applied.</p>
                     )}
                   </div>
                 </>
               ) : (
                 <div className="flex items-center justify-center w-full">
-                  <p className="text-xs text-red-400">Dry run failed or not supported for this template.</p>
+                  <p className="text-xs text-[#EE0000]">Dry run failed or not supported for this template.</p>
                 </div>
               )}
             </div>

@@ -74,7 +74,7 @@ export default function ProjectDetail({ project, initialTab = 'overview', allPro
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[85vh] w-[90vw] max-w-[1100px] flex-col overflow-hidden rounded-lg border border-dash-line bg-dash-panel shadow-glow"
+        className="flex h-[85vh] w-[90vw] max-w-[1100px] flex-col overflow-hidden rounded-lg border border-dash-line bg-dash-panel shadow-2xl"
       >
         <header className="flex items-center justify-between border-b border-dash-line px-4 py-3">
           <div className="min-w-0">
@@ -1202,7 +1202,7 @@ function ScreenshotsTab({ project }: { project: ProjectConfig }) {
           onClick={() => setLightbox(null)}
         >
           {lightboxData ? (
-            <img src={lightboxData} alt="" className="max-h-full max-w-full rounded-md shadow-glow" />
+            <img src={lightboxData} alt="" className="max-h-full max-w-full rounded-md shadow-2xl" />
           ) : (
             <div className="text-dash-mute">Loading…</div>
           )}

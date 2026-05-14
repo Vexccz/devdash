@@ -26,33 +26,40 @@ export default function Sidebar({ tab, onChange }: Props) {
   ];
 
   return (
-    <aside className="no-drag flex w-44 flex-col border-r border-dash-line bg-dash-panel/40 py-3">
-      <div className="px-3 pb-3 text-[11px] uppercase tracking-wider text-dash-mute">Dashboard</div>
-      <nav className="flex flex-col gap-1 px-2">
+    <aside className="no-drag flex w-52 flex-col border-r border-[#222] bg-[#0A0A0A] py-4">
+      <div className="px-4 pb-4">
+        <span className="text-sm font-semibold text-white tracking-tight">DevDash</span>
+      </div>
+      <div className="h-px bg-[#222] mx-3 mb-2" />
+      <nav className="flex flex-col gap-0.5 px-2 flex-1 overflow-y-auto">
         {items.map((it) => {
           const active = it.id === tab;
           return (
             <button
               key={it.id}
               onClick={() => onChange(it.id)}
-              className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm transition ${
+              className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-all duration-150 ease-in-out ${
                 active
-                  ? 'bg-dash-indigo/20 text-dash-indigoBright'
-                  : 'text-dash-mute hover:bg-white/5 hover:text-dash-text'
+                  ? 'bg-white/10 text-white'
+                  : 'text-[#888] hover:bg-white/[0.04] hover:text-[#ccc]'
               }`}
             >
-              <span className="flex h-4 w-4 items-center justify-center">{it.icon}</span>
-              <span>{it.label}</span>
+              <span className={`flex h-4 w-4 items-center justify-center ${active ? 'text-white' : 'text-[#666]'}`}>
+                {it.icon}
+              </span>
+              <span className="truncate">{it.label}</span>
             </button>
           );
         })}
       </nav>
-      <div className="mt-auto px-3 pt-4 text-[10px] leading-relaxed text-dash-mute">
+      <div className="h-px bg-[#222] mx-3 mt-2 mb-3" />
+      <div className="px-4 text-[11px] leading-relaxed text-[#444]">
         <p>Solo dev companion.</p>
-        <p className="mt-1">
-          Press <kbd className="rounded border border-dash-line px-1 font-mono">Ctrl</kbd>+
-          <kbd className="ml-0.5 rounded border border-dash-line px-1 font-mono">K</kbd> for
-          palette.
+        <p className="mt-1.5">
+          <kbd className="rounded border border-[#333] bg-[#111] px-1 py-0.5 font-mono text-[10px] text-[#666]">Ctrl</kbd>
+          <span className="mx-0.5">+</span>
+          <kbd className="rounded border border-[#333] bg-[#111] px-1 py-0.5 font-mono text-[10px] text-[#666]">K</kbd>
+          <span className="ml-1">palette</span>
         </p>
       </div>
     </aside>

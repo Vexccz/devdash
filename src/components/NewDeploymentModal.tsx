@@ -143,7 +143,7 @@ export default function NewDeploymentModal({ project, onClose, onSuccess }: Prop
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg border border-dash-line bg-dash-panel shadow-glow">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg border border-dash-line bg-dash-panel shadow-2xl">
         <header className="flex items-center justify-between border-b border-dash-line px-5 py-3">
           <div>
             <h2 className="text-sm font-semibold">Deploy {project.name}</h2>

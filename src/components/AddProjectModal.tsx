@@ -164,7 +164,7 @@ export default function AddProjectModal({ initial, onClose, onSaved }: Props) {
     <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <form
         onSubmit={submit}
-        className="w-[440px] rounded-lg border border-dash-line bg-dash-panel p-5 shadow-glow"
+        className="w-[440px] rounded-lg border border-dash-line bg-dash-panel p-5 shadow-2xl"
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-dash-text">
