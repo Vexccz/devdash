@@ -274,6 +274,12 @@ const api = {
       return () => ipcRenderer.removeListener('aigen:log', h);
     },
   },
+  ai: {
+    providers: () => ipcRenderer.invoke('ai:providers'),
+    active: () => ipcRenderer.invoke('ai:active'),
+    test: () => ipcRenderer.invoke('ai:test'),
+    chat: (messages: Array<{role: string; content: string}>, options?: {temperature?: number; maxTokens?: number}) => ipcRenderer.invoke('ai:chat', messages, options),
+  },
   template: {
     checkUpdates: () => ipcRenderer.invoke('template:checkUpdates'),
     viewDiff: (projectId: string) => ipcRenderer.invoke('template:viewDiff', projectId),

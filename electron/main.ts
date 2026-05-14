@@ -64,6 +64,7 @@ import { detectFramework } from './frameworks';
 import { generateChangelog, writeChangelogToProject } from './changelog';
 import { performRelease } from './release';
 import * as aigen from './aigen';
+import * as aiprovider from './aiprovider';
 import * as templateversions from './templateversions';
 import * as cloudsync from './cloudsync';
 
@@ -1323,6 +1324,12 @@ function registerIpc() {
     return aigen.runAiGen({ projectPath: opts.projectPath, prompt: opts.prompt, dryRun: true });
   });
   ipcMain.handle('aigen:history', () => aigen.getHistory());
+
+  // AI Provider (multi-provider)
+  ipcMain.handle('ai:providers', () => aiprovider.listProviders());
+  ipcMain.handle('ai:active', () => aiprovider.getActiveProvider());
+  ipcMain.handle('ai:test', () => aiprovider.testConnection());
+  ipcMain.handle('ai:chat', (_e, messages: any[], options?: any) => aiprovider.chat(messages, options));
 
   // Template versioning
   ipcMain.handle('template:checkUpdates', () => templateversions.checkUpdates());

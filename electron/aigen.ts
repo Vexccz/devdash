@@ -3,6 +3,7 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import type { BrowserWindow } from 'electron';
 import { loadConfig } from './config';
+import { chat as aiChat, AIMessage } from './aiprovider';
 
 export interface FileOperation {
   action: 'create' | 'modify' | 'delete';
@@ -108,11 +109,6 @@ function parseOperations(raw: string): FileOperation[] {
 export async function runAiGen(opts: AiGenOptions): Promise<AiGenResult> {
   const { projectPath, prompt, dryRun } = opts;
   const cfg = loadConfig();
-  const { ollamaBaseUrl, ollamaApiKey, ollamaDefaultModel } = cfg.settings;
-
-  if (!ollamaDefaultModel) {
-    return { ok: false, operations: [], error: 'No AI model configured. Set ollamaDefaultModel in settings.' };
-  }
 
   if (!fs.existsSync(projectPath)) {
     return { ok: false, operations: [], error: 'Project path does not exist.' };
@@ -126,57 +122,21 @@ export async function runAiGen(opts: AiGenOptions): Promise<AiGenResult> {
 
   const userMessage = `Project structure:\n${tree.join('\n')}\n\nKey files:\n${keyContent}\n\nFeature request: ${prompt}`;
 
-  emit('system', `Sending request to ${ollamaDefaultModel}...`);
+  emit('system', `Sending request to AI provider...`);
 
-  const baseUrl = (ollamaBaseUrl || 'http://localhost:11434').replace(/\/$/, '');
-  const isOllama = baseUrl.includes('11434');
-  const endpoint = isOllama
-    ? `${baseUrl}/api/chat`
-    : `${baseUrl}/v1/chat/completions`;
-
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (ollamaApiKey) headers['Authorization'] = `Bearer ${ollamaApiKey}`;
-
-  let body: any;
-  if (isOllama) {
-    body = {
-      model: ollamaDefaultModel,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      stream: false,
-    };
-  } else {
-    body = {
-      model: ollamaDefaultModel,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      temperature: cfg.settings.ollamaTemperature ?? 0.7,
-    };
-  }
+  const messages: AIMessage[] = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: userMessage },
+  ];
 
   try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-    });
+    const result = await aiChat(messages, { temperature: cfg.settings.ollamaTemperature ?? 0.7 });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      return { ok: false, operations: [], error: `API error ${res.status}: ${errText.slice(0, 200)}` };
+    if (!result.ok) {
+      return { ok: false, operations: [], error: result.error || 'AI request failed' };
     }
 
-    const data = await res.json() as any;
-    let responseText = '';
-    if (isOllama) {
-      responseText = data?.message?.content || '';
-    } else {
-      responseText = data?.choices?.[0]?.message?.content || '';
-    }
+    const responseText = result.content;
 
     emit('system', 'Parsing AI response...');
     const operations = parseOperations(responseText);

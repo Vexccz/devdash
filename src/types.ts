@@ -123,6 +123,15 @@ export interface AppSettings {
   supabaseAnonKey?: string;
   syncEnabled?: boolean;
   favoriteTemplates?: string[];
+  aiProvider?: string;
+  openaiApiKey?: string;
+  anthropicApiKey?: string;
+  googleApiKey?: string;
+  groqApiKey?: string;
+  togetherApiKey?: string;
+  customAiBaseUrl?: string;
+  customAiApiKey?: string;
+  customAiModel?: string;
 }
 
 export interface Toast {
@@ -775,6 +784,12 @@ declare global {
         preview: (opts: { projectPath: string; prompt: string }) => Promise<{ ok: boolean; operations: Array<{ action: string; path: string; content?: string }>; error?: string }>;
         history: () => Promise<Array<{ id: string; projectPath: string; prompt: string; operations: Array<{ action: string; path: string; content?: string }>; appliedAt?: string; createdAt: string }>>;
         onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => () => void;
+      };
+      ai: {
+        providers: () => Promise<Array<{ id: string; name: string; models: string[]; requiresKey: boolean; baseUrl: string }>>;
+        active: () => Promise<{ provider: { id: string; name: string; models: string[]; requiresKey: boolean; baseUrl: string }; model: string; configured: boolean }>;
+        test: () => Promise<{ ok: boolean; provider: string; model: string; error?: string }>;
+        chat: (messages: Array<{role: string; content: string}>, options?: {temperature?: number; maxTokens?: number}) => Promise<{ ok: boolean; content: string; model: string; provider: string; error?: string }>;
       };
       template: {
         checkUpdates: () => Promise<Array<{ projectId: string; projectName: string; templateId: string; currentVersion: string; latestVersion: string; hasUpdate: boolean; changes: string[] }>>;

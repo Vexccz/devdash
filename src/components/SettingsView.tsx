@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AppSettings } from '../types';
+import AIProviderSettings from './AIProviderSettings';
 
 export default function SettingsView() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -124,6 +125,8 @@ export default function SettingsView() {
           />
         </div>
       </section>
+
+      <AIProviderSettings />
 
       <section className="card p-4">
         <h2 className="mb-3 text-sm font-semibold text-dash-text">Ollama chat</h2>

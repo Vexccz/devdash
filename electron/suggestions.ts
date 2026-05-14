@@ -1,4 +1,5 @@
 import { loadConfig } from './config';
+import { chat as aiChat, AIMessage } from './aiprovider';
 
 export interface SuggestionResult {
   template: string;
@@ -148,13 +149,6 @@ export async function suggestFromAI(
   projectName: string,
   description?: string
 ): Promise<AISuggestionResult | { error: string }> {
-  const cfg = loadConfig();
-  const { ollamaBaseUrl, ollamaApiKey, ollamaDefaultModel } = cfg.settings;
-
-  if (!ollamaDefaultModel) {
-    return { error: 'No AI model configured. Set ollamaDefaultModel in settings.' };
-  }
-
   const templates = [
     'react-express-mongo',
     'react-express-postgres',
@@ -186,49 +180,16 @@ Respond with ONLY a JSON object (no markdown, no explanation):
   "reason": "<one-line explanation>"
 }`;
 
-  const baseUrl = (ollamaBaseUrl || 'http://localhost:11434').replace(/\/$/, '');
-  const isOllama = baseUrl.includes('11434');
-  const endpoint = isOllama ? `${baseUrl}/api/chat` : `${baseUrl}/v1/chat/completions`;
-
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (ollamaApiKey) headers['Authorization'] = `Bearer ${ollamaApiKey}`;
-
-  let body: any;
-  if (isOllama) {
-    body = {
-      model: ollamaDefaultModel,
-      messages: [{ role: 'user', content: prompt }],
-      stream: false,
-      options: { temperature: 0.3 },
-    };
-  } else {
-    body = {
-      model: ollamaDefaultModel,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.3,
-    };
-  }
+  const messages: AIMessage[] = [{ role: 'user', content: prompt }];
 
   try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30000),
-    });
+    const result = await aiChat(messages, { temperature: 0.3 });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      return { error: `API error ${res.status}: ${errText.slice(0, 200)}` };
+    if (!result.ok) {
+      return { error: result.error || 'AI request failed' };
     }
 
-    const data = await res.json() as any;
-    let content = '';
-    if (isOllama) {
-      content = data?.message?.content || '';
-    } else {
-      content = data?.choices?.[0]?.message?.content || '';
-    }
+    const content = result.content;
 
     if (!content.trim()) {
       return { error: 'AI returned empty response.' };
@@ -275,7 +236,7 @@ Respond with ONLY a JSON object (no markdown, no explanation):
       structure: validStructure,
       confidence: 'high',
       reason: parsed.reason || 'AI recommendation',
-      aiModel: ollamaDefaultModel,
+      aiModel: result.model,
     };
   } catch (err: any) {
     if (err?.name === 'SyntaxError') {

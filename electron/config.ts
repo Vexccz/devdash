@@ -52,6 +52,18 @@ export interface AppConfig {
     supabaseAnonKey?: string;
     syncEnabled?: boolean;
     favoriteTemplates?: string[];
+    // AI Provider config
+    aiProvider: 'ollama' | 'openai' | 'anthropic' | 'google' | 'groq' | 'together' | 'custom';
+    // Provider-specific keys
+    openaiApiKey?: string;
+    anthropicApiKey?: string;
+    googleApiKey?: string;
+    groqApiKey?: string;
+    togetherApiKey?: string;
+    // Custom OpenAI-compatible
+    customAiBaseUrl?: string;
+    customAiApiKey?: string;
+    customAiModel?: string;
   };
 }
 
@@ -83,6 +95,15 @@ const DEFAULT_CONFIG: AppConfig = {
     supabaseAnonKey: '',
     syncEnabled: false,
     favoriteTemplates: [],
+    aiProvider: 'ollama',
+    openaiApiKey: '',
+    anthropicApiKey: '',
+    googleApiKey: '',
+    groqApiKey: '',
+    togetherApiKey: '',
+    customAiBaseUrl: '',
+    customAiApiKey: '',
+    customAiModel: '',
   },
 };
 
