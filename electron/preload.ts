@@ -109,6 +109,7 @@ const api = {
   },
   scaffold: {
     templates: () => ipcRenderer.invoke('scaffold:templates'),
+    marketplace: () => ipcRenderer.invoke('scaffold:marketplace'),
     pickParent: () => ipcRenderer.invoke('scaffold:pickParent'),
     previewTemplate: (templateId: string) => ipcRenderer.invoke('scaffold:previewTemplate', templateId),
     run: (opts: {
@@ -125,6 +126,8 @@ const api = {
       customTemplateRepo?: string;
       deployToVercel?: boolean;
       deployToRender?: boolean;
+      uiKit?: 'tailwind' | 'shadcn' | 'material' | 'chakra';
+      envPreset?: 'dev' | 'production' | 'indie-saas';
     }) => ipcRenderer.invoke('scaffold:run', opts),
     isActive: () => ipcRenderer.invoke('scaffold:isActive'),
     onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => {

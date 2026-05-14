@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import TemplateMarketplace from './TemplateMarketplace';
 
 interface Props {
   onProjectCreated: () => void;
@@ -34,6 +35,9 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewData, setPreviewData] = useState<{ files: string[]; fileCount: number; lineCount: number } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false);
+  const [uiKit, setUiKit] = useState<'tailwind' | 'shadcn' | 'material' | 'chakra'>('tailwind');
+  const [envPreset, setEnvPreset] = useState<'dev' | 'production' | 'indie-saas'>('dev');
   const logsEnd = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -94,6 +98,8 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
       customTemplateRepo: useCustomTemplate ? customTemplateRepo : undefined,
       deployToVercel,
       deployToRender,
+      uiKit: template === 'flutter-firebase' ? undefined : uiKit,
+      envPreset: template === 'flutter-firebase' ? undefined : envPreset,
     });
     setBusy(false);
     setResult(res);
@@ -200,6 +206,93 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
               />
             )}
           </div>
+
+          {/* Template Marketplace */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setMarketplaceOpen(!marketplaceOpen)}
+              className="flex items-center gap-1.5 text-xs text-dash-accent hover:text-dash-text"
+            >
+              <span className="text-[10px]">{marketplaceOpen ? '▾' : '▸'}</span>
+              Browse community templates
+            </button>
+            {marketplaceOpen && (
+              <div className="mt-2 rounded-lg border border-dash-line bg-dash-card p-3">
+                <TemplateMarketplace
+                  onUse={(url) => {
+                    setUseCustomTemplate(true);
+                    setCustomTemplateRepo(url);
+                    setMarketplaceOpen(false);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* UI Kit Selection */}
+          {template !== 'flutter-firebase' && (
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-dash-mute">UI Kit</label>
+              <select
+                value={uiKit}
+                onChange={(e) => setUiKit(e.target.value as typeof uiKit)}
+                className="mt-1 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 text-xs text-dash-text"
+              >
+                <option value="tailwind">Tailwind CSS (default)</option>
+                <option value="shadcn">shadcn/ui (Radix + Tailwind)</option>
+                <option value="material">Material UI (MUI)</option>
+                <option value="chakra">Chakra UI</option>
+              </select>
+              <p className="mt-1 text-[10px] text-dash-mute">
+                {uiKit === 'tailwind' && 'Already included in templates. No extra deps.'}
+                {uiKit === 'shadcn' && 'Adds Radix primitives, CVA, tailwind-merge + base components (Button, Input, Card).'}
+                {uiKit === 'material' && 'Adds @mui/material + Emotion styling engine.'}
+                {uiKit === 'chakra' && 'Adds @chakra-ui/react + Emotion + Framer Motion.'}
+              </p>
+            </div>
+          )}
+
+          {/* Environment Preset */}
+          {template !== 'flutter-firebase' && (
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-dash-mute">Environment Preset</label>
+              <div className="mt-1 flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 text-xs text-dash-text">
+                  <input
+                    type="radio"
+                    name="envPreset"
+                    value="dev"
+                    checked={envPreset === 'dev'}
+                    onChange={() => setEnvPreset('dev')}
+                  />
+                  Dev (default, no extra packages)
+                </label>
+                <label className="flex items-center gap-2 text-xs text-dash-text">
+                  <input
+                    type="radio"
+                    name="envPreset"
+                    value="production"
+                    checked={envPreset === 'production'}
+                    onChange={() => setEnvPreset('production')}
+                  />
+                  Production
+                  <span className="text-[10px] text-dash-mute">+Sentry, helmet, rate-limit, compression, cors</span>
+                </label>
+                <label className="flex items-center gap-2 text-xs text-dash-text">
+                  <input
+                    type="radio"
+                    name="envPreset"
+                    value="indie-saas"
+                    checked={envPreset === 'indie-saas'}
+                    onChange={() => setEnvPreset('indie-saas')}
+                  />
+                  Indie SaaS
+                  <span className="text-[10px] text-dash-mute">+Production + PostHog + Logtail</span>
+                </label>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5 text-xs text-dash-text">
             <label className="flex items-center gap-2">

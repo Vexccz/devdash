@@ -22,6 +22,8 @@ export interface ScaffoldOptions {
   customTemplateRepo?: string; // GitHub URL or owner/repo for custom template
   deployToVercel?: boolean;
   deployToRender?: boolean;
+  uiKit?: 'tailwind' | 'shadcn' | 'material' | 'chakra';
+  envPreset?: 'dev' | 'production' | 'indie-saas';
 }
 
 export interface ScaffoldResult {
@@ -213,6 +215,36 @@ export function previewTemplate(templateId: string): TemplatePreview | { error: 
   return { files, fileCount: files.length, lineCount };
 }
 
+export interface MarketplaceEntry {
+  id: string;
+  name: string;
+  description: string;
+  author: string;
+  stars: number;
+  downloads: number;
+  githubUrl: string;
+  tags: string[];
+}
+
+export function loadMarketplace(): MarketplaceEntry[] {
+  const candidates = [
+    path.join(process.resourcesPath ?? '', 'marketplace.json'),
+    path.join(app.getAppPath(), 'electron', 'marketplace.json'),
+    path.resolve(__dirname, 'marketplace.json'),
+    path.resolve(__dirname, '..', 'electron', 'marketplace.json'),
+  ];
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) {
+      try {
+        return JSON.parse(fs.readFileSync(c, 'utf-8')) as MarketplaceEntry[];
+      } catch {
+        return [];
+      }
+    }
+  }
+  return [];
+}
+
 export function isActive(): boolean {
   return active;
 }
@@ -317,6 +349,153 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
         }
       } catch (err) {
         emit('stderr', `envFromSettings failed: ${(err as Error).message}`);
+      }
+    }
+
+    // UI Kit injection (skip flutter-firebase)
+    const isFlutter = opts.template === 'flutter-firebase';
+    if (opts.uiKit && opts.uiKit !== 'tailwind' && !isFlutter) {
+      emit('system', `Applying UI kit: ${opts.uiKit}...`);
+      // Find frontend package.json candidates
+      const frontendPkgPaths = [
+        path.join(targetDir, 'frontend', 'package.json'),
+        path.join(targetDir, 'package.json'),
+      ];
+      for (const pkgPath of frontendPkgPaths) {
+        if (!fs.existsSync(pkgPath)) continue;
+        try {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+          if (!pkg.dependencies) pkg.dependencies = {};
+          if (opts.uiKit === 'shadcn') {
+            pkg.dependencies['@radix-ui/react-slot'] = '^1.1.0';
+            pkg.dependencies['class-variance-authority'] = '^0.7.0';
+            pkg.dependencies['clsx'] = '^2.1.1';
+            pkg.dependencies['tailwind-merge'] = '^2.5.0';
+            pkg.dependencies['lucide-react'] = '^0.460.0';
+            // Create components.json for shadcn
+            const componentsJson = {
+              '$schema': 'https://ui.shadcn.com/schema.json',
+              style: 'default',
+              rsc: false,
+              tsx: true,
+              tailwind: { config: 'tailwind.config.js', css: 'src/index.css', baseColor: 'neutral', cssVariables: true },
+              aliases: { components: '@/components', utils: '@/lib/utils' },
+            };
+            const componentsJsonPath = path.join(path.dirname(pkgPath), 'components.json');
+            fs.writeFileSync(componentsJsonPath, JSON.stringify(componentsJson, null, 2), 'utf-8');
+            // Create utils file
+            const libDir = path.join(path.dirname(pkgPath), 'src', 'lib');
+            if (!fs.existsSync(libDir)) fs.mkdirSync(libDir, { recursive: true });
+            fs.writeFileSync(path.join(libDir, 'utils.ts'), `import { type ClassValue, clsx } from 'clsx';\nimport { twMerge } from 'tailwind-merge';\n\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs));\n}\n`, 'utf-8');
+            // Create base components
+            const uiDir = path.join(path.dirname(pkgPath), 'src', 'components', 'ui');
+            if (!fs.existsSync(uiDir)) fs.mkdirSync(uiDir, { recursive: true });
+            fs.writeFileSync(path.join(uiDir, 'button.tsx'), `import * as React from 'react';\nimport { Slot } from '@radix-ui/react-slot';\nimport { cva, type VariantProps } from 'class-variance-authority';\nimport { cn } from '@/lib/utils';\n\nconst buttonVariants = cva(\n  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50',\n  { variants: { variant: { default: 'bg-primary text-primary-foreground shadow hover:bg-primary/90', outline: 'border border-input bg-background shadow-sm hover:bg-accent' }, size: { default: 'h-9 px-4 py-2', sm: 'h-8 rounded-md px-3 text-xs', lg: 'h-10 rounded-md px-8' } }, defaultVariants: { variant: 'default', size: 'default' } }\n);\n\nexport interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> { asChild?: boolean; }\n\nconst Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, variant, size, asChild = false, ...props }, ref) => {\n  const Comp = asChild ? Slot : 'button';\n  return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;\n});\nButton.displayName = 'Button';\nexport { Button, buttonVariants };\n`, 'utf-8');
+            fs.writeFileSync(path.join(uiDir, 'input.tsx'), `import * as React from 'react';\nimport { cn } from '@/lib/utils';\n\nexport interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {}\n\nconst Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type, ...props }, ref) => {\n  return <input type={type} className={cn('flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 disabled:cursor-not-allowed disabled:opacity-50', className)} ref={ref} {...props} />;\n});\nInput.displayName = 'Input';\nexport { Input };\n`, 'utf-8');
+            fs.writeFileSync(path.join(uiDir, 'card.tsx'), `import * as React from 'react';\nimport { cn } from '@/lib/utils';\n\nconst Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (\n  <div ref={ref} className={cn('rounded-xl border bg-card text-card-foreground shadow', className)} {...props} />\n));\nCard.displayName = 'Card';\n\nconst CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (\n  <div ref={ref} className={cn('flex flex-col space-y-1.5 p-6', className)} {...props} />\n));\nCardHeader.displayName = 'CardHeader';\n\nconst CardTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(({ className, ...props }, ref) => (\n  <h3 ref={ref} className={cn('font-semibold leading-none tracking-tight', className)} {...props} />\n));\nCardTitle.displayName = 'CardTitle';\n\nconst CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (\n  <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />\n));\nCardContent.displayName = 'CardContent';\n\nexport { Card, CardHeader, CardTitle, CardContent };\n`, 'utf-8');
+          } else if (opts.uiKit === 'material') {
+            pkg.dependencies['@mui/material'] = '^6.1.0';
+            pkg.dependencies['@emotion/react'] = '^11.13.0';
+            pkg.dependencies['@emotion/styled'] = '^11.13.0';
+            pkg.dependencies['@mui/icons-material'] = '^6.1.0';
+          } else if (opts.uiKit === 'chakra') {
+            pkg.dependencies['@chakra-ui/react'] = '^2.10.0';
+            pkg.dependencies['@emotion/react'] = '^11.13.0';
+            pkg.dependencies['@emotion/styled'] = '^11.13.0';
+            pkg.dependencies['framer-motion'] = '^11.11.0';
+          }
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+          emit('system', `UI kit deps added to ${path.basename(path.dirname(pkgPath))}/package.json`);
+          break; // Only apply to first found frontend package.json
+        } catch (err) {
+          emit('stderr', `UI kit injection failed: ${(err as Error).message}`);
+        }
+      }
+    }
+
+    // Environment Preset injection (skip flutter-firebase)
+    if (opts.envPreset && opts.envPreset !== 'dev' && !isFlutter) {
+      emit('system', `Applying environment preset: ${opts.envPreset}...`);
+
+      // Backend package.json: add production deps
+      const backendPkgPaths = [
+        path.join(targetDir, 'backend', 'package.json'),
+        path.join(targetDir, 'package.json'),
+      ];
+      for (const pkgPath of backendPkgPaths) {
+        if (!fs.existsSync(pkgPath)) continue;
+        try {
+          const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+          if (!pkg.dependencies) pkg.dependencies = {};
+          // Production deps
+          pkg.dependencies['@sentry/node'] = '^8.30.0';
+          pkg.dependencies['helmet'] = '^8.0.0';
+          pkg.dependencies['express-rate-limit'] = '^7.4.0';
+          pkg.dependencies['compression'] = '^1.7.4';
+          pkg.dependencies['cors'] = '^2.8.5';
+          // Indie-SaaS extras
+          if (opts.envPreset === 'indie-saas') {
+            pkg.dependencies['posthog-node'] = '^4.2.0';
+            pkg.dependencies['@logtail/node'] = '^0.5.0';
+          }
+          fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+          emit('system', `Env preset deps added to backend package.json`);
+          break;
+        } catch (err) {
+          emit('stderr', `Env preset backend injection failed: ${(err as Error).message}`);
+        }
+      }
+
+      // Frontend package.json: indie-saas adds posthog-js
+      if (opts.envPreset === 'indie-saas') {
+        const frontendPkgPaths = [
+          path.join(targetDir, 'frontend', 'package.json'),
+          path.join(targetDir, 'package.json'),
+        ];
+        for (const pkgPath of frontendPkgPaths) {
+          if (!fs.existsSync(pkgPath)) continue;
+          try {
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+            if (!pkg.dependencies) pkg.dependencies = {};
+            pkg.dependencies['posthog-js'] = '^1.170.0';
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
+            emit('system', `posthog-js added to frontend package.json`);
+            break;
+          } catch (err) {
+            emit('stderr', `Env preset frontend injection failed: ${(err as Error).message}`);
+          }
+        }
+      }
+
+      // Append to .env.example files
+      const envFiles = [
+        path.join(targetDir, 'backend', '.env.example'),
+        path.join(targetDir, '.env.example'),
+      ].filter((p) => fs.existsSync(p));
+      const productionEnvLines = [
+        '',
+        '# Production (added by DevDash env preset)',
+        'SENTRY_DSN=',
+        'RATE_LIMIT_MAX=100',
+        'RATE_LIMIT_WINDOW_MS=900000',
+      ];
+      const indieSaasEnvLines = [
+        '# Indie SaaS (added by DevDash env preset)',
+        'POSTHOG_KEY=',
+        'LOGTAIL_TOKEN=',
+      ];
+      for (const envPath of envFiles) {
+        try {
+          let txt = fs.readFileSync(envPath, 'utf-8');
+          txt += productionEnvLines.join('\n') + '\n';
+          if (opts.envPreset === 'indie-saas') {
+            txt += indieSaasEnvLines.join('\n') + '\n';
+          }
+          fs.writeFileSync(envPath, txt, 'utf-8');
+          emit('system', `Env preset variables appended to ${path.basename(envPath)}`);
+        } catch (err) {
+          emit('stderr', `Env file update failed: ${(err as Error).message}`);
+        }
       }
     }
 

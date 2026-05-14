@@ -617,6 +617,7 @@ declare global {
       };
       scaffold: {
         templates: () => Promise<Array<{ id: string; label: string; description: string }>>;
+        marketplace: () => Promise<Array<{ id: string; name: string; description: string; author: string; stars: number; downloads: number; githubUrl: string; tags: string[] }>>;
         pickParent: () => Promise<{ ok: boolean; path?: string }>;
         previewTemplate: (templateId: string) => Promise<{ files: string[]; fileCount: number; lineCount: number } | { error: string }>;
         run: (opts: {
@@ -633,6 +634,8 @@ declare global {
           customTemplateRepo?: string;
           deployToVercel?: boolean;
           deployToRender?: boolean;
+          uiKit?: 'tailwind' | 'shadcn' | 'material' | 'chakra';
+          envPreset?: 'dev' | 'production' | 'indie-saas';
         }) => Promise<{ ok: boolean; targetDir?: string; error?: string; githubUrl?: string; vercelUrl?: string; renderUrl?: string; deployProvider?: string; deployId?: string }>;
         isActive: () => Promise<boolean>;
         onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => () => void;
