@@ -805,6 +805,7 @@ function registerIpc() {
   // Build code (scaffold from templates)
   ipcMain.handle('scaffold:templates', () => scaffold.listTemplates());
   ipcMain.handle('scaffold:isActive', () => scaffold.isActive());
+  ipcMain.handle('scaffold:previewTemplate', (_e, templateId: string) => scaffold.previewTemplate(templateId));
   ipcMain.handle('scaffold:pickParent', async () => {
     const win = BrowserWindow.getFocusedWindow();
     const res = await dialog.showOpenDialog(win!, {

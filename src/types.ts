@@ -618,6 +618,7 @@ declare global {
       scaffold: {
         templates: () => Promise<Array<{ id: string; label: string; description: string }>>;
         pickParent: () => Promise<{ ok: boolean; path?: string }>;
+        previewTemplate: (templateId: string) => Promise<{ files: string[]; fileCount: number; lineCount: number } | { error: string }>;
         run: (opts: {
           projectName: string;
           targetParentDir: string;
@@ -629,7 +630,10 @@ declare global {
           envFromSettings?: boolean;
           gitHubPush?: boolean;
           gitHubPrivate?: boolean;
-        }) => Promise<{ ok: boolean; targetDir?: string; error?: string; githubUrl?: string }>;
+          customTemplateRepo?: string;
+          deployToVercel?: boolean;
+          deployToRender?: boolean;
+        }) => Promise<{ ok: boolean; targetDir?: string; error?: string; githubUrl?: string; vercelUrl?: string; renderUrl?: string; deployProvider?: string; deployId?: string }>;
         isActive: () => Promise<boolean>;
         onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => () => void;
       };

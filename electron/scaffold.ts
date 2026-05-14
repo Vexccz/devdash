@@ -5,12 +5,13 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import type { BrowserWindow } from 'electron';
 import { app } from 'electron';
-import { loadConfig } from './config';
+import { loadConfig, addProject } from './config';
+import os from 'node:os';
 
 export interface ScaffoldOptions {
   projectName: string;
   targetParentDir: string;
-  template: 'react-express-mongo' | 'react-express-postgres' | 'nextjs-prisma';
+  template: string;
   displayName: string;
   useStripe: boolean;
   install: boolean;
@@ -19,6 +20,8 @@ export interface ScaffoldOptions {
   gitHubPush?: boolean;
   gitHubPrivate?: boolean;
   customTemplateRepo?: string; // GitHub URL or owner/repo for custom template
+  deployToVercel?: boolean;
+  deployToRender?: boolean;
 }
 
 export interface ScaffoldResult {
@@ -26,6 +29,10 @@ export interface ScaffoldResult {
   targetDir?: string;
   error?: string;
   githubUrl?: string;
+  vercelUrl?: string;
+  renderUrl?: string;
+  deployId?: string;
+  deployProvider?: 'vercel' | 'render' | 'none';
 }
 
 export type ScaffoldLogEvent = {
@@ -153,7 +160,57 @@ export function listTemplates(): Array<{ id: string; label: string; description:
       label: 'Next.js 14 + Postgres (Prisma)',
       description: 'Full-stack Next.js App Router with Postgres + Prisma, cookie-based JWT auth, Stripe, admin panel, emails.',
     },
+    {
+      id: 'nextjs-app-router',
+      label: 'Next.js 15 App Router + Auth.js + Stripe',
+      description: 'Next.js 15 App Router, Tailwind 4, Auth.js v5, Prisma, Stripe Checkout. Deploy-ready for Vercel.',
+    },
+    {
+      id: 'flutter-firebase',
+      label: 'Flutter + Firebase',
+      description: 'Flutter mobile app with Firebase Auth (email + Google), Cloud Firestore, Firebase Storage, Provider state.',
+    },
+    {
+      id: 'fastapi-react',
+      label: 'FastAPI + React (Vite)',
+      description: 'Python FastAPI backend + React Vite frontend, SQLAlchemy + Alembic, JWT auth, Tailwind CSS.',
+    },
   ];
+}
+
+export interface TemplatePreview {
+  files: string[];
+  fileCount: number;
+  lineCount: number;
+}
+
+export function previewTemplate(templateId: string): TemplatePreview | { error: string } {
+  const tplRoot = templatesRoot();
+  const tplDir = path.join(tplRoot, templateId);
+  if (!fs.existsSync(tplDir)) {
+    return { error: `Template "${templateId}" not found.` };
+  }
+  const files: string[] = [];
+  let lineCount = 0;
+
+  function walk(dir: string, prefix: string) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        walk(path.join(dir, entry.name), rel);
+      } else {
+        files.push(rel);
+        try {
+          const buf = fs.readFileSync(path.join(dir, entry.name));
+          if (!buf.includes(0)) {
+            lineCount += buf.toString('utf-8').split('\n').length;
+          }
+        } catch { /* skip unreadable */ }
+      }
+    }
+  }
+  walk(tplDir, '');
+  return { files, fileCount: files.length, lineCount };
 }
 
 export function isActive(): boolean {
@@ -180,12 +237,6 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
       }
     }
 
-    const tplRoot = templatesRoot();
-    const tplDir = path.join(tplRoot, opts.template);
-    if (!fs.existsSync(tplDir)) {
-      return { ok: false, error: `Template "${opts.template}" not found at ${tplDir}` };
-    }
-
     const replacements = {
       PROJECT_NAME: safeName,
       PROJECT_SLUG: slugify(safeName),
@@ -194,8 +245,34 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
       STRIPE_KEY_HINT: opts.useStripe ? 'sk_test_replace_me' : 'disabled',
     };
 
-    emit('system', `Scaffolding into ${targetDir}...`);
-    copyDir(tplDir, targetDir, replacements);
+    // Custom template from GitHub repo
+    if (opts.customTemplateRepo) {
+      const repo = opts.customTemplateRepo.trim();
+      const repoUrl = repo.startsWith('http') ? repo : `https://github.com/${repo}.git`;
+      const tmpDir = path.join(os.tmpdir(), `devdash-tpl-${Date.now()}`);
+      emit('system', `Cloning custom template from ${repoUrl}...`);
+      const cloneCode = await runStreamed('git', ['clone', '--depth', '1', repoUrl, tmpDir], os.tmpdir(), 120000);
+      if (cloneCode !== 0) {
+        return { ok: false, error: `Failed to clone custom template from ${repoUrl}` };
+      }
+      // Remove .git from cloned template
+      const clonedGit = path.join(tmpDir, '.git');
+      if (fs.existsSync(clonedGit)) {
+        fs.rmSync(clonedGit, { recursive: true, force: true });
+      }
+      emit('system', `Scaffolding into ${targetDir}...`);
+      copyDir(tmpDir, targetDir, replacements);
+      // Clean up temp dir
+      try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    } else {
+      const tplRoot = templatesRoot();
+      const tplDir = path.join(tplRoot, opts.template);
+      if (!fs.existsSync(tplDir)) {
+        return { ok: false, error: `Template "${opts.template}" not found at ${tplDir}` };
+      }
+      emit('system', `Scaffolding into ${targetDir}...`);
+      copyDir(tplDir, targetDir, replacements);
+    }
 
     // Detect if template uses a nested backend folder (for payments.js location)
     const hasBackendFolder = fs.existsSync(path.join(targetDir, 'backend'));
@@ -318,10 +395,149 @@ export async function scaffold(opts: ScaffoldOptions): Promise<ScaffoldResult> {
       emit('stderr', 'GitHub push requires git init. Skipping.');
     }
 
+    // Deploy to Vercel/Render if requested
+    let vercelUrl: string | undefined;
+    let renderUrl: string | undefined;
+    let deployProvider: 'vercel' | 'render' | 'none' = 'none';
+    let deployId: string | undefined;
+
+    if (opts.deployToVercel || opts.deployToRender) {
+      const cfg = loadConfig();
+      if (opts.deployToVercel) {
+        const vercelToken = cfg.settings.vercelToken?.trim();
+        if (!vercelToken) {
+          emit('stderr', 'Vercel token not set in settings. Skipping Vercel deploy.');
+        } else if (!githubUrl) {
+          emit('stderr', 'GitHub URL required for Vercel deploy. Push to GitHub first.');
+        } else {
+          emit('system', 'Creating Vercel project...');
+          try {
+            const projectSlug = slugify(safeName).slice(0, 100);
+            const ghMatch = githubUrl.match(/github\.com[:/]+([^/]+)\/([^/.]+?)(?:\.git)?(?:\/|$)/i);
+            const ghRepo = ghMatch ? `${ghMatch[1]}/${ghMatch[2]}` : null;
+            if (!ghRepo) {
+              emit('stderr', 'Could not parse GitHub URL for Vercel.');
+            } else {
+              const createRes = await fetch('https://api.vercel.com/v10/projects', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${vercelToken}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  name: projectSlug,
+                  framework: null,
+                  gitRepository: { type: 'github', repo: ghRepo },
+                }),
+              });
+              if (!createRes.ok) {
+                const errText = await createRes.text();
+                emit('stderr', `Vercel project creation failed: ${createRes.status} ${errText}`);
+              } else {
+                const vercelProject = (await createRes.json()) as { id: string; name: string };
+                deployId = vercelProject.id;
+                vercelUrl = `https://${vercelProject.name}.vercel.app`;
+                deployProvider = 'vercel';
+                emit('system', `Vercel project created: ${vercelUrl}`);
+                // Trigger first deploy
+                try {
+                  const deployRes = await fetch('https://api.vercel.com/v13/deployments', {
+                    method: 'POST',
+                    headers: {
+                      Authorization: `Bearer ${vercelToken}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      name: vercelProject.name,
+                      project: vercelProject.id,
+                      target: 'production',
+                      gitSource: { type: 'github', ref: 'main' },
+                    }),
+                  });
+                  if (deployRes.ok) {
+                    const dep = (await deployRes.json()) as { url?: string };
+                    if (dep.url) vercelUrl = `https://${dep.url}`;
+                    emit('system', `Vercel deployment triggered: ${vercelUrl}`);
+                  }
+                } catch (depErr) {
+                  emit('stderr', `Vercel deploy trigger failed: ${(depErr as Error).message}`);
+                }
+              }
+            }
+          } catch (err) {
+            emit('stderr', `Vercel error: ${(err as Error).message}`);
+          }
+        }
+      }
+
+      if (opts.deployToRender) {
+        const renderToken = cfg.settings.renderToken?.trim();
+        if (!renderToken) {
+          emit('stderr', 'Render token not set in settings. Skipping Render deploy.');
+        } else if (!githubUrl) {
+          emit('stderr', 'GitHub URL required for Render deploy. Push to GitHub first.');
+        } else {
+          emit('system', 'Creating Render service...');
+          try {
+            // Find owner
+            const ownerRes = await fetch('https://api.render.com/v1/owners?limit=1', {
+              headers: { Authorization: `Bearer ${renderToken}`, Accept: 'application/json' },
+            });
+            const owners = (await ownerRes.json()) as Array<{ owner?: { id: string }; id?: string }>;
+            const ownerId = owners[0]?.owner?.id || owners[0]?.id;
+            if (!ownerId) {
+              emit('stderr', 'Could not resolve Render owner.');
+            } else {
+              const serviceName = slugify(safeName).slice(0, 50);
+              const svcRes = await fetch('https://api.render.com/v1/services', {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${renderToken}`,
+                  Accept: 'application/json',
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  type: 'web_service',
+                  name: serviceName,
+                  ownerId,
+                  repo: githubUrl.replace(/\.git$/, ''),
+                  branch: 'main',
+                  autoDeploy: 'yes',
+                  serviceDetails: {
+                    env: 'node',
+                    plan: 'free',
+                    region: 'singapore',
+                    buildCommand: 'npm install',
+                    startCommand: 'npm start',
+                  },
+                }),
+              });
+              if (!svcRes.ok) {
+                const errText = await svcRes.text();
+                emit('stderr', `Render service creation failed: ${svcRes.status} ${errText}`);
+              } else {
+                const svc = (await svcRes.json()) as { service?: { id: string; serviceDetails?: { url?: string } }; id?: string };
+                const svcData = svc.service || svc;
+                const svcId = (svcData as any).id;
+                renderUrl = (svcData as any).serviceDetails?.url;
+                if (!deployProvider || deployProvider === 'none') {
+                  deployProvider = 'render';
+                  deployId = svcId;
+                }
+                emit('system', `Render service created${renderUrl ? `: ${renderUrl}` : ''}.`);
+              }
+            }
+          } catch (err) {
+            emit('stderr', `Render error: ${(err as Error).message}`);
+          }
+        }
+      }
+    }
+
     emit('system', `Done. Project at ${targetDir}`);
-    return { ok: true, targetDir, githubUrl };
+    return { ok: true, targetDir, githubUrl, vercelUrl, renderUrl, deployProvider, deployId };
   } catch (err) {
-    emit('stderr', `Scaffold failed: ${(err as Error).message}`);
+    emit('stderr', `Scaffold error: ${(err as Error).message}`);
     return { ok: false, error: (err as Error).message };
   } finally {
     active = false;

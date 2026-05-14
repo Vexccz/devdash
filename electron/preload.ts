@@ -110,6 +110,7 @@ const api = {
   scaffold: {
     templates: () => ipcRenderer.invoke('scaffold:templates'),
     pickParent: () => ipcRenderer.invoke('scaffold:pickParent'),
+    previewTemplate: (templateId: string) => ipcRenderer.invoke('scaffold:previewTemplate', templateId),
     run: (opts: {
       projectName: string;
       targetParentDir: string;
@@ -121,6 +122,9 @@ const api = {
       envFromSettings?: boolean;
       gitHubPush?: boolean;
       gitHubPrivate?: boolean;
+      customTemplateRepo?: string;
+      deployToVercel?: boolean;
+      deployToRender?: boolean;
     }) => ipcRenderer.invoke('scaffold:run', opts),
     isActive: () => ipcRenderer.invoke('scaffold:isActive'),
     onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => {

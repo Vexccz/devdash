@@ -15,10 +15,25 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
   const [gitInit, setGitInit] = useState(true);
   const [busy, setBusy] = useState(false);
   const [logs, setLogs] = useState<Array<{ stream: string; line: string; ts: number }>>([]);
-  const [result, setResult] = useState<{ ok: boolean; targetDir?: string; error?: string; githubUrl?: string } | null>(null);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    targetDir?: string;
+    error?: string;
+    githubUrl?: string;
+    vercelUrl?: string;
+    renderUrl?: string;
+  } | null>(null);
   const [envFromSettings, setEnvFromSettings] = useState(true);
   const [gitHubPush, setGitHubPush] = useState(false);
   const [gitHubPrivate, setGitHubPrivate] = useState(true);
+  const [deployToVercel, setDeployToVercel] = useState(false);
+  const [deployToRender, setDeployToRender] = useState(false);
+  const [useCustomTemplate, setUseCustomTemplate] = useState(false);
+  const [customTemplateRepo, setCustomTemplateRepo] = useState('');
+  const [settings, setSettings] = useState<{ vercelToken?: string; renderToken?: string; githubToken?: string }>({});
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<{ files: string[]; fileCount: number; lineCount: number } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const logsEnd = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -26,6 +41,8 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
       const t = await window.devdash.scaffold.templates();
       setTemplates(t);
       if (t[0]) setTemplate(t[0].id);
+      const s = await window.devdash.settings.get();
+      setSettings(s);
     })();
     const off = window.devdash.scaffold.onLog((e) => {
       setLogs((cur) => [...cur.slice(-499), { stream: e.stream, line: e.line, ts: e.ts }]);
@@ -42,6 +59,18 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
     if (res.ok && res.path) setParent(res.path);
   };
 
+  const handlePreview = async () => {
+    setPreviewLoading(true);
+    setPreviewOpen(true);
+    const res = await window.devdash.scaffold.previewTemplate(template);
+    if ('error' in res) {
+      setPreviewData(null);
+    } else {
+      setPreviewData(res);
+    }
+    setPreviewLoading(false);
+  };
+
   const generate = async () => {
     if (!name.trim()) return;
     if (!parent) {
@@ -50,7 +79,7 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
     }
     setBusy(true);
     setResult(null);
-    setLogs([{ stream: 'system', line: `Starting ${template} scaffold for ${name}…`, ts: Date.now() }]);
+    setLogs([{ stream: 'system', line: `Starting ${useCustomTemplate ? 'custom' : template} scaffold for ${name}…`, ts: Date.now() }]);
     const res = await window.devdash.scaffold.run({
       projectName: name.trim(),
       displayName: displayName.trim() || name.trim(),
@@ -62,11 +91,17 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
       envFromSettings,
       gitHubPush,
       gitHubPrivate,
+      customTemplateRepo: useCustomTemplate ? customTemplateRepo : undefined,
+      deployToVercel,
+      deployToRender,
     });
     setBusy(false);
     setResult(res);
     if (res.ok) onProjectCreated();
   };
+
+  const hasVercelToken = !!settings.vercelToken;
+  const hasRenderToken = !!settings.renderToken;
 
   return (
     <div className="flex h-full flex-col">
@@ -122,18 +157,48 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
 
           <div>
             <label className="text-[10px] uppercase tracking-wider text-dash-mute">Template</label>
-            <select
-              value={template}
-              onChange={(e) => setTemplate(e.target.value)}
-              className="mt-1 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 text-xs text-dash-text"
-            >
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>{t.label}</option>
-              ))}
-            </select>
+            <div className="mt-1 flex gap-2">
+              <select
+                value={template}
+                onChange={(e) => setTemplate(e.target.value)}
+                disabled={useCustomTemplate}
+                className="flex-1 rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 text-xs text-dash-text disabled:opacity-50"
+              >
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+              <button
+                onClick={handlePreview}
+                disabled={useCustomTemplate}
+                className="btn-soft text-[10px] disabled:opacity-40"
+                title="Preview template file tree"
+              >
+                Preview
+              </button>
+            </div>
             <p className="mt-1 text-[10px] text-dash-mute">
               {templates.find((t) => t.id === template)?.description}
             </p>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-xs text-dash-text">
+              <input
+                type="checkbox"
+                checked={useCustomTemplate}
+                onChange={(e) => setUseCustomTemplate(e.target.checked)}
+              />
+              Use custom template (GitHub repo)
+            </label>
+            {useCustomTemplate && (
+              <input
+                value={customTemplateRepo}
+                onChange={(e) => setCustomTemplateRepo(e.target.value)}
+                placeholder="owner/repo or https://github.com/owner/repo"
+                className="mt-2 w-full rounded-md border border-dash-line bg-dash-bg px-2 py-1.5 font-mono text-[11px] text-dash-text"
+              />
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5 text-xs text-dash-text">
@@ -168,6 +233,26 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                 Make repo private
               </label>
             )}
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={deployToVercel}
+                disabled={!hasVercelToken || !gitHubPush}
+                onChange={(e) => setDeployToVercel(e.target.checked)}
+              />
+              Deploy to Vercel
+              {!hasVercelToken && <span className="text-[10px] text-dash-mute">(no token)</span>}
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={deployToRender}
+                disabled={!hasRenderToken || !gitHubPush}
+                onChange={(e) => setDeployToRender(e.target.checked)}
+              />
+              Deploy to Render
+              {!hasRenderToken && <span className="text-[10px] text-dash-mute">(no token)</span>}
+            </label>
           </div>
 
           <button
@@ -197,6 +282,26 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
                       className="btn-soft text-[10px]"
                     >
                       Open repo
+                    </a>
+                  )}
+                  {result.vercelUrl && (
+                    <a
+                      href={result.vercelUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-soft text-[10px]"
+                    >
+                      Vercel ↗
+                    </a>
+                  )}
+                  {result.renderUrl && (
+                    <a
+                      href={result.renderUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-soft text-[10px]"
+                    >
+                      Render ↗
                     </a>
                   )}
                   <button
@@ -254,6 +359,37 @@ export default function BuildCodeView({ onProjectCreated }: Props) {
           </div>
         </section>
       </div>
+
+      {/* Template Preview Modal */}
+      {previewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setPreviewOpen(false)}>
+          <div className="max-h-[70vh] w-full max-w-md overflow-hidden rounded-xl border border-dash-line bg-dash-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-dash-line px-4 py-3">
+              <h3 className="text-sm font-semibold text-dash-text">Template Preview: {template}</h3>
+              <button onClick={() => setPreviewOpen(false)} className="text-dash-mute hover:text-dash-text text-lg leading-none">&times;</button>
+            </div>
+            <div className="overflow-y-auto p-4" style={{ maxHeight: 'calc(70vh - 60px)' }}>
+              {previewLoading ? (
+                <p className="text-xs text-dash-mute">Loading...</p>
+              ) : previewData ? (
+                <>
+                  <div className="mb-3 flex gap-4 text-[11px] text-dash-mute">
+                    <span>{previewData.fileCount} files</span>
+                    <span>{previewData.lineCount.toLocaleString()} lines</span>
+                  </div>
+                  <div className="space-y-0.5 font-mono text-[10px] text-dash-text">
+                    {previewData.files.map((f, i) => (
+                      <div key={i} className="truncate">{f}</div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-red-400">Template not found.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
