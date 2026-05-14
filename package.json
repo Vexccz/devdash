@@ -1,103 +1,103 @@
 {
-    "name":  "devdash",
-    "version":  "0.22.0",
-    "description":  "DevDash - Windows dashboard for local projects + deploy radar (Vercel/Render).",
-    "main":  "dist-electron/main.js",
-    "author":  "Vexccz",
-    "license":  "MIT",
-    "private":  true,
-    "scripts":  {
-                    "dev":  "cross-env NODE_ENV=development concurrently -k -s first \"npm:dev:renderer\" \"npm:dev:main\"",
-                    "dev:renderer":  "vite",
-                    "dev:main":  "wait-on http://localhost:5173 \u0026\u0026 tsc -p electron/tsconfig.json \u0026\u0026 electron .",
-                    "build":  "tsc -p electron/tsconfig.json \u0026\u0026 vite build",
-                    "rebuild":  "electron-rebuild -f -w better-sqlite3",
-                    "postinstall":  "electron-builder install-app-deps",
-                    "dist":  "npm run build \u0026\u0026 electron-builder --win --x64 --publish never",
-                    "icons":  "node scripts/make-icons.cjs",
-                    "typecheck":  "tsc --noEmit \u0026\u0026 tsc -p electron/tsconfig.json --noEmit",
-                    "lint":  "echo \"no linter configured\""
-                },
-    "build":  {
-                  "appId":  "com.vexccz.devdash",
-                  "productName":  "DevDash",
-                  "directories":  {
-                                      "output":  "dist"
-                                  },
-                  "files":  [
-                                "dist-electron/**/*",
-                                "dist-renderer/**/*",
-                                "src/assets/**/*",
-                                "build/icon.png",
-                                "package.json"
-                            ],
-                  "extraMetadata":  {
-                                        "main":  "dist-electron/main.js"
-                                    },
-                  "win":  {
-                              "icon":  "build/icon.png",
-                              "target":  [
-                                             {
-                                                 "target":  "nsis",
-                                                 "arch":  [
-                                                              "x64"
-                                                          ]
-                                             }
-                                         ],
-                              "artifactName":  "DevDash-Setup-${version}.${ext}"
-                          },
-                  "nsis":  {
-                               "oneClick":  false,
-                               "allowToChangeInstallationDirectory":  true,
-                               "perMachine":  false,
-                               "createDesktopShortcut":  true,
-                               "shortcutName":  "DevDash"
-                           },
-                  "asarUnpack":  [
-                                     "node_modules/better-sqlite3/**/*"
-                                 ],
-                  "extraResources":  [
-                                         {
-                                             "from":  "templates",
-                                             "to":  "templates"
-                                         }
-                                     ]
-              },
-    "dependencies":  {
-                         "@types/pg":  "8.11.10",
-                         "axios":  "1.16.0",
-                         "better-sqlite3":  "11.3.0",
-                         "date-fns":  "4.1.0",
-                         "dompurify":  "^3.4.2",
-                         "highlight.js":  "^11.11.1",
-                         "marked":  "^18.0.3",
-                         "mongodb":  "6.10.0",
-                         "node-cron":  "3.0.3",
-                         "pg":  "8.13.1",
-                         "simple-git":  "3.36.0",
-                         "@supabase/supabase-js":  "2.49.1"
-                     },
-    "devDependencies":  {
-                            "@electron/rebuild":  "3.6.0",
-                            "@types/better-sqlite3":  "7.6.11",
-                            "@types/dompurify":  "^3.2.0",
-                            "@types/node":  "22.7.4",
-                            "@types/node-cron":  "3.0.11",
-                            "@types/react":  "18.3.11",
-                            "@types/react-dom":  "18.3.0",
-                            "@vitejs/plugin-react":  "4.3.2",
-                            "autoprefixer":  "10.4.20",
-                            "concurrently":  "9.0.1",
-                            "cross-env":  "7.0.3",
-                            "electron":  "32.1.2",
-                            "electron-builder":  "25.1.8",
-                            "pngjs":  "7.0.0",
-                            "postcss":  "8.5.14",
-                            "react":  "18.3.1",
-                            "react-dom":  "18.3.1",
-                            "tailwindcss":  "3.4.13",
-                            "typescript":  "5.6.2",
-                            "vite":  "5.4.21",
-                            "wait-on":  "8.0.1"
-                        }
+  "name": "devdash",
+  "version": "0.23.0",
+  "description": "DevDash - Windows dashboard for local projects + deploy radar (Vercel/Render).",
+  "main": "dist-electron/main.js",
+  "author": "Vexccz",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development concurrently -k -s first \"npm:dev:renderer\" \"npm:dev:main\"",
+    "dev:renderer": "vite",
+    "dev:main": "wait-on http://localhost:5173 && tsc -p electron/tsconfig.json && electron .",
+    "build": "tsc -p electron/tsconfig.json && vite build",
+    "rebuild": "electron-rebuild -f -w better-sqlite3",
+    "postinstall": "electron-builder install-app-deps",
+    "dist": "npm run build && electron-builder --win --x64 --publish never",
+    "icons": "node scripts/make-icons.cjs",
+    "typecheck": "tsc --noEmit && tsc -p electron/tsconfig.json --noEmit",
+    "lint": "echo \"no linter configured\""
+  },
+  "build": {
+    "appId": "com.vexccz.devdash",
+    "productName": "DevDash",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "dist-renderer/**/*",
+      "src/assets/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "dist-electron/main.js"
+    },
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "DevDash-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "DevDash"
+    },
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "templates",
+        "to": "templates"
+      }
+    ]
+  },
+  "dependencies": {
+    "@types/pg": "8.11.10",
+    "axios": "1.16.0",
+    "better-sqlite3": "11.3.0",
+    "date-fns": "4.1.0",
+    "dompurify": "^3.4.2",
+    "highlight.js": "^11.11.1",
+    "marked": "^18.0.3",
+    "mongodb": "6.10.0",
+    "node-cron": "3.0.3",
+    "pg": "8.13.1",
+    "simple-git": "3.36.0",
+    "@supabase/supabase-js": "2.49.1"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "3.6.0",
+    "@types/better-sqlite3": "7.6.11",
+    "@types/dompurify": "^3.2.0",
+    "@types/node": "22.7.4",
+    "@types/node-cron": "3.0.11",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.0",
+    "@vitejs/plugin-react": "4.3.2",
+    "autoprefixer": "10.4.20",
+    "concurrently": "9.0.1",
+    "cross-env": "7.0.3",
+    "electron": "32.1.2",
+    "electron-builder": "25.1.8",
+    "pngjs": "7.0.0",
+    "postcss": "8.5.14",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tailwindcss": "3.4.13",
+    "typescript": "5.6.2",
+    "vite": "5.4.21",
+    "wait-on": "8.0.1"
+  }
 }

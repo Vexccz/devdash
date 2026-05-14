@@ -667,6 +667,14 @@ declare global {
         history: () => Promise<Array<{ id: string; date: string; template: string; projectName: string; targetDir: string; deployStatus: 'none' | 'vercel' | 'render' | 'both'; durationMs: number; options: { useStripe: boolean; install: boolean; gitInit: boolean; gitHubPush: boolean; uiKit?: string; envPreset?: string; structure?: string; postHooks?: string[]; autoOpenVSCode?: boolean } }>>;
         clearHistory: () => Promise<{ ok: boolean }>;
         compareTemplates: (a: string, b: string) => Promise<{ templateA: { id: string; files: string[]; fileCount: number; lineCount: number }; templateB: { id: string; files: string[]; fileCount: number; lineCount: number }; onlyInA: string[]; onlyInB: string[]; common: string[] } | { error: string }>;
+        suggest: (name: string, desc?: string) => Promise<{ template: string; uiKit: string; envPreset: string; structure: string; confidence: string; reason: string }>;
+        suggestAI: (name: string, desc?: string) => Promise<{ template: string; uiKit: string; envPreset: string; structure: string; confidence: string; reason: string; aiModel: string } | { error: string }>;
+      };
+      addons: {
+        list: () => Promise<Array<{ id: string; name: string; description: string; category: string; compatibleTemplates: string[]; packages: { backend?: string[]; frontend?: string[] }; envVars?: string[]; difficulty: string; estimatedTime: string; recommended?: string[] }>>;
+        forTemplate: (templateId: string) => Promise<Array<{ id: string; name: string; description: string; category: string; compatibleTemplates: string[]; packages: { backend?: string[]; frontend?: string[] }; envVars?: string[]; difficulty: string; estimatedTime: string; recommended?: string[] }>>;
+        recommended: (templateId: string) => Promise<Array<{ id: string; name: string; description: string; category: string; compatibleTemplates: string[]; packages: { backend?: string[]; frontend?: string[] }; envVars?: string[]; difficulty: string; estimatedTime: string; recommended?: string[] }>>;
+        apply: (targetDir: string, addonIds: string[]) => Promise<{ ok: boolean; installed: string[]; envVarsAdded: string[]; setupFile?: string; error?: string }>;
       };
       time: {
         enter: (id: string) => Promise<{ projectId: string; startedAt: number }>;
