@@ -48,6 +48,8 @@ import * as timer from './timer';
 import * as uptime from './uptime';
 import * as scheduler from './scheduler';
 import * as depcheck from './depcheck';
+import * as suggestions from './suggestions';
+import * as addons from './addons';
 import * as bundlesize from './bundlesize';
 import * as heatmap from './heatmap';
 import * as screenshots from './screenshots';
@@ -906,6 +908,17 @@ function registerIpc() {
   ipcMain.handle('scaffold:hasMultipleFolders', (_e, templateId: string) => {
     return scaffold.hasMultipleFolders(templateId);
   });
+
+  // Scaffold suggestions
+  ipcMain.handle('scaffold:suggest', (_e, name: string, desc?: string) => suggestions.suggestFromRules(name, desc));
+  ipcMain.handle('scaffold:suggestAI', (_e, name: string, desc?: string) => suggestions.suggestFromAI(name, desc));
+
+  // Addons
+  ipcMain.handle('addons:list', () => addons.listAddons());
+  ipcMain.handle('addons:forTemplate', (_e, templateId: string) => addons.getAddonsForTemplate(templateId));
+  ipcMain.handle('addons:recommended', (_e, templateId: string) => addons.getRecommendedAddons(templateId));
+  ipcMain.handle('addons:apply', (_e, targetDir: string, addonIds: string[]) => addons.applyAddons(targetDir, addonIds));
+
   // Template editor
   ipcMain.handle('template:listFiles', (_e, templateId: string) => scaffold.templateListFiles(templateId));
   ipcMain.handle('template:readFile', (_e, args: { templateId: string; filePath: string }) => {

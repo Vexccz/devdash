@@ -140,11 +140,19 @@ const api = {
     clearHistory: () => ipcRenderer.invoke('scaffold:clearHistory'),
     toggleFavorite: (templateId: string) => ipcRenderer.invoke('scaffold:toggleFavorite', templateId),
     hasMultipleFolders: (templateId: string) => ipcRenderer.invoke('scaffold:hasMultipleFolders', templateId),
+    suggest: (name: string, desc?: string) => ipcRenderer.invoke('scaffold:suggest', name, desc),
+    suggestAI: (name: string, desc?: string) => ipcRenderer.invoke('scaffold:suggestAI', name, desc),
     onLog: (cb: (e: { stream: string; line: string; ts: number }) => void) => {
       const h = (_: unknown, payload: any) => cb(payload);
       ipcRenderer.on('scaffold:log', h);
       return () => ipcRenderer.removeListener('scaffold:log', h);
     },
+  },
+  addons: {
+    list: () => ipcRenderer.invoke('addons:list'),
+    forTemplate: (templateId: string) => ipcRenderer.invoke('addons:forTemplate', templateId),
+    recommended: (templateId: string) => ipcRenderer.invoke('addons:recommended', templateId),
+    apply: (targetDir: string, addonIds: string[]) => ipcRenderer.invoke('addons:apply', targetDir, addonIds),
   },
   time: {
     enter: (id: string) => ipcRenderer.invoke('time:enter', id),
